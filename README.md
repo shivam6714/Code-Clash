@@ -3,13 +3,37 @@
 CodeClash is a 1v1 online competitive DSA platform.
 
 ## Requirements
-* Node.js (v18+)
-* MongoDB (Local MongoDB instance or MongoDB Atlas)
+- Node.js (v18+)
+- MongoDB
+- **Docker Desktop** (Required for code execution sandboxing)
 
-## Installation
-Run the following command from the root directory to install dependencies for the root, backend, and frontend concurrently:
-```bash
-npm run install:all
+## Setup & Run
+
+1. Clone the repository and configure `.env` (use `.env.example` as a template).
+2. Install all dependencies:
+   ```bash
+   npm run install:all
+   ```
+3. **IMPORTANT**: Seed the DSA problems (this will overwrite existing problems):
+   ```bash
+   npm run seed:problems --prefix backend
+   ```
+4. Start the application stack:
+   ```bash
+   npm run dev:wait
+   ```
+
+## Architecture & Security (Phase 5)
+
+CodeClash executes user-submitted code in isolated Docker environments.
+- **Isolation**: Each submission gets a temporary, single-use container (`--rm`).
+- **Resource Limits**: CPU is limited to 1 core, memory to 256MB.
+- **Network**: Containers use `--network none` and cannot access the internet or internal services.
+- **Cleanup**: Ephemeral temp directories are securely scrubbed via `finally` execution blocks.
+- **No Host Execution**: No code ever runs using raw `eval()` or `exec()` on the Node.js backend.
+
+```text
+Battle -> Execution Service -> Docker Sandbox -> Judge -> Battle Result
 ```
 
 ## Environment Setup

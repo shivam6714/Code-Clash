@@ -27,6 +27,7 @@ const BattleRoom: React.FC = () => {
   const [language, setLanguage] = useState(SUPPORTED_LANGUAGES[0].id);
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [isJudging, setIsJudging] = useState(false);
 
   useEffect(() => {
     // If socket isn't connected, we shouldn't be here
@@ -70,8 +71,18 @@ const BattleRoom: React.FC = () => {
       setOpponentStatus(data.status);
     });
 
-    socket.on('battle:submit_ack', (data) => {
-      setActionMessage(data.message);
+    socket.on('battle:submission-result', (data) => {
+      setIsJudging(false);
+      
+      let message = `${data.status.replace(/_/g, ' ')}`;
+      if (data.passedTests !== undefined && data.totalTests !== undefined) {
+         message += ` - ${data.passedTests} / ${data.totalTests} tests passed`;
+      }
+      if (data.errorMessage) {
+         message += ` | ${data.errorMessage}`;
+      }
+      
+      setActionMessage(message);
     });
 
     return () => {
@@ -80,7 +91,7 @@ const BattleRoom: React.FC = () => {
       socket.off('battle:ended');
       socket.off('battle:opponent-left');
       socket.off('battle:opponent-status');
-      socket.off('battle:submit_ack');
+      socket.off('battle:submission-result');
     };
   }, [navigate]);
 
@@ -117,7 +128,13 @@ const BattleRoom: React.FC = () => {
   };
 
   const handleSubmit = () => {
-    socket.emit('battle:submit');
+    if (isJudging || status !== 'ACTIVE') return;
+    setIsJudging(true);
+    setActionMessage('Judging...');
+    socket.emit('battle:submit', {
+      sourceCode: codes[language],
+      language: language
+    });
   };
 
   const handleLeave = () => {
@@ -257,10 +274,10 @@ const BattleRoom: React.FC = () => {
               </button>
               <button 
                 onClick={handleSubmit}
-                disabled={status !== 'ACTIVE'}
+                disabled={status !== 'ACTIVE' || isJudging}
                 className="bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
               >
-                Submit
+                {isJudging ? 'Judging...' : 'Submit'}
               </button>
             </div>
           </div>

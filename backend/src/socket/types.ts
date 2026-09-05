@@ -12,6 +12,7 @@ export interface BattlePlayer {
   socketId: string;
   hasSubmitted: boolean;
   connected: boolean;
+  lastSubmissionAt?: number;
 }
 
 export interface BattleRoom {

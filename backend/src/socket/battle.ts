@@ -77,25 +77,53 @@ const startBattle = (io: Server, battle: BattleRoom) => {
   }, BATTLE_DURATION_MS);
 };
 
+import { executeSubmission } from '../execution/runner';
+import { SubmissionStatus } from '../execution/types';
+
 export const handleBattleEvents = (io: Server, socket: Socket) => {
   const userId = (socket as any).userId;
 
-  socket.on('battle:submit', () => {
+  socket.on('battle:submit', async (data: { sourceCode: string, language: any }) => {
     const battleId = userBattles.get(userId);
     if (!battleId) return;
 
     const battle = activeBattles.get(battleId);
     if (!battle || battle.status !== BattleState.ACTIVE) return;
 
-    // Placeholder for actual judge logic
+    if (Date.now() >= (battle.endsAt || 0)) {
+       return socket.emit('battle:submission-result', { status: 'SYSTEM_ERROR', errorMessage: 'Battle has ended' });
+    }
+
     const player = battle.player1.userId === userId ? battle.player1 : battle.player2;
-    player.hasSubmitted = true;
-    
-    socket.emit('battle:submit_ack', { message: 'Submission received. Judging system coming in the next phase.' });
-    
-    // Notify opponent
     const opponent = battle.player1.userId === userId ? battle.player2 : battle.player1;
-    io.to(opponent.socketId).emit('battle:opponent-status', { status: 'Submitted' });
+
+    // Rate limiting: 2 seconds
+    const now = Date.now();
+    if (player.lastSubmissionAt && now - player.lastSubmissionAt < 2000) {
+      return socket.emit('battle:submission-result', { status: 'RATE_LIMITED', errorMessage: 'Please wait before submitting again.' });
+    }
+    player.lastSubmissionAt = now;
+
+    // Notify opponent
+    io.to(opponent.socketId).emit('battle:opponent-status', { status: 'Judging...' });
+    
+    // Determine language and execute
+    const { sourceCode, language } = data;
+    const supportedLangs = ['cpp', 'python', 'java', 'javascript'];
+    if (!supportedLangs.includes(language)) {
+       return socket.emit('battle:submission-result', { status: 'SYSTEM_ERROR', errorMessage: 'Invalid language' });
+    }
+
+    const result = await executeSubmission(sourceCode, language, battle.problem.testCases);
+
+    socket.emit('battle:submission-result', result);
+
+    if (result.status === SubmissionStatus.ACCEPTED && battle.status === BattleState.ACTIVE) {
+      // Winner!
+      endBattle(io, battle, `${player.username} has solved the problem!`);
+    } else {
+      io.to(opponent.socketId).emit('battle:opponent-status', { status: 'Connected' });
+    }
   });
 
   socket.on('battle:leave', () => {

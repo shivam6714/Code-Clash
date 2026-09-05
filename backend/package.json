@@ -2,6 +2,7 @@
   "name": "codeclash-backend",
   "version": "1.0.0",
   "description": "CodeClash backend server",
+  "type": "commonjs",
   "main": "src/index.ts",
   "scripts": {
     "dev": "nodemon",
