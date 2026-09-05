@@ -31,6 +31,11 @@ export interface IProblem extends Document {
   timeLimit: number; // in milliseconds
   memoryLimit: number; // in megabytes
   isPublished: boolean;
+  source?: {
+    provider: string;
+    externalId: string;
+    externalUrl?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -70,6 +75,11 @@ const problemSchema = new Schema<IProblem>(
     timeLimit: { type: Number, required: true, default: 2000 },
     memoryLimit: { type: Number, required: true, default: 256 },
     isPublished: { type: Boolean, required: true, default: false },
+    source: {
+      provider: { type: String },
+      externalId: { type: String },
+      externalUrl: { type: String },
+    },
   },
   {
     timestamps: true,
@@ -79,5 +89,6 @@ const problemSchema = new Schema<IProblem>(
 problemSchema.index({ difficulty: 1 });
 problemSchema.index({ topics: 1 });
 problemSchema.index({ isPublished: 1 });
+problemSchema.index({ 'source.provider': 1, 'source.externalId': 1 }, { unique: true, sparse: true });
 
 export const Problem = mongoose.model<IProblem>('Problem', problemSchema);
