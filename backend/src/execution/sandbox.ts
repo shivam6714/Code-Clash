@@ -35,7 +35,7 @@ export class DockerSandbox {
   }
 
   public async compile(compileCmd: string): Promise<SandboxExecutionResult> {
-    return this.executeDockerCommand(compileCmd.split(' '), undefined, 10000);
+    return this.executeDockerCommand(compileCmd.split(' '), undefined, 20000);
   }
 
   public async run(runCmd: string, stdinData: string): Promise<SandboxExecutionResult> {

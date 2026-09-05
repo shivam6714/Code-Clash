@@ -13,6 +13,7 @@ export interface BattlePlayer {
   hasSubmitted: boolean;
   connected: boolean;
   lastSubmissionAt?: number;
+  lastRunAt?: number;
 }
 
 export interface BattleRoom {

@@ -28,6 +28,9 @@ const BattleRoom: React.FC = () => {
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isJudging, setIsJudging] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const [runResult, setRunResult] = useState<any | null>(null);
+  const [showRunPanel, setShowRunPanel] = useState(false);
 
   useEffect(() => {
     // If socket isn't connected, we shouldn't be here
@@ -85,6 +88,17 @@ const BattleRoom: React.FC = () => {
       setActionMessage(message);
     });
 
+    socket.on('battle:run-result', (data) => {
+      setIsRunning(false);
+      if (data.status === 'RATE_LIMITED' || data.status === 'SYSTEM_ERROR') {
+        setActionMessage(data.errorMessage || data.status);
+      } else {
+        setRunResult(data);
+        setShowRunPanel(true);
+        setActionMessage(null); // Clear action message if run succeeds
+      }
+    });
+
     return () => {
       socket.off('battle:countdown');
       socket.off('battle:started');
@@ -92,6 +106,7 @@ const BattleRoom: React.FC = () => {
       socket.off('battle:opponent-left');
       socket.off('battle:opponent-status');
       socket.off('battle:submission-result');
+      socket.off('battle:run-result');
     };
   }, [navigate]);
 
@@ -124,11 +139,19 @@ const BattleRoom: React.FC = () => {
   };
 
   const handleRun = () => {
-    setActionMessage("Code execution is coming in the next phase.");
+    if (isRunning || isJudging || status !== 'ACTIVE') return;
+    setIsRunning(true);
+    setActionMessage('Running...');
+    setShowRunPanel(false);
+    setRunResult(null);
+    socket.emit('battle:run', {
+      sourceCode: codes[language],
+      language: language
+    });
   };
 
   const handleSubmit = () => {
-    if (isJudging || status !== 'ACTIVE') return;
+    if (isJudging || isRunning || status !== 'ACTIVE') return;
     setIsJudging(true);
     setActionMessage('Judging...');
     socket.emit('battle:submit', {
@@ -267,14 +290,14 @@ const BattleRoom: React.FC = () => {
             <div className="space-x-3">
               <button 
                 onClick={handleRun}
-                disabled={status !== 'ACTIVE'}
+                disabled={status !== 'ACTIVE' || isRunning || isJudging}
                 className="bg-dark-700 hover:bg-dark-600 disabled:opacity-50 text-gray-200 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
               >
-                Run
+                {isRunning ? 'Running...' : 'Run'}
               </button>
               <button 
                 onClick={handleSubmit}
-                disabled={status !== 'ACTIVE' || isJudging}
+                disabled={status !== 'ACTIVE' || isJudging || isRunning}
                 className="bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
               >
                 {isJudging ? 'Judging...' : 'Submit'}
@@ -297,10 +320,67 @@ const BattleRoom: React.FC = () => {
                 readOnly: status !== 'ACTIVE',
               }}
             />
+            
+            {/* Run Results Panel */}
+            {showRunPanel && runResult && (
+              <div className="absolute bottom-0 left-0 right-0 h-2/3 bg-dark-900 border-t border-dark-600 flex flex-col z-10 shadow-2xl transition-all">
+                <div className="flex items-center justify-between px-4 py-2 bg-dark-800 border-b border-dark-700 shrink-0">
+                  <div className="font-bold text-gray-200">
+                    Execution Result:{' '}
+                    <span className={runResult.status === 'ACCEPTED' ? 'text-green-400' : 'text-red-400'}>
+                      {runResult.status.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={() => setShowRunPanel(false)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+                
+                <div className="p-4 overflow-y-auto custom-scrollbar flex-grow">
+                  {runResult.errorMessage && runResult.status !== 'WRONG_ANSWER' && runResult.status !== 'ACCEPTED' && (
+                    <div className="mb-4 bg-red-900/20 text-red-400 p-4 rounded border border-red-900/50 font-mono text-sm whitespace-pre-wrap">
+                      {runResult.errorMessage}
+                    </div>
+                  )}
+
+                  {runResult.testResults && runResult.testResults.map((tr: any, idx: number) => (
+                    <div key={idx} className="mb-6 bg-dark-800 rounded border border-dark-700 overflow-hidden">
+                      <div className={`px-4 py-2 font-bold text-sm flex items-center justify-between border-b ${tr.passed ? 'bg-green-900/20 border-green-900/30 text-green-400' : 'bg-red-900/20 border-red-900/30 text-red-400'}`}>
+                        <span>Test Case {idx + 1}</span>
+                        <span>{tr.passed ? '✓ Passed' : '✗ Failed'}</span>
+                      </div>
+                      <div className="p-4 space-y-4 font-mono text-sm">
+                        <div>
+                          <div className="text-gray-500 mb-1">Input:</div>
+                          <div className="bg-dark-900 p-2 rounded text-gray-300 whitespace-pre-wrap break-all">{tr.input}</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500 mb-1">Expected Output:</div>
+                          <div className="bg-dark-900 p-2 rounded text-gray-300 whitespace-pre-wrap break-all">{tr.expectedOutput}</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500 mb-1">Actual Output:</div>
+                          <div className="bg-dark-900 p-2 rounded text-gray-300 whitespace-pre-wrap break-all">{tr.actualOutput || 'No output'}</div>
+                        </div>
+                        {tr.errorMessage && (
+                          <div>
+                            <div className="text-red-500 mb-1">Error:</div>
+                            <div className="bg-red-900/20 text-red-400 p-2 rounded whitespace-pre-wrap break-all">{tr.errorMessage}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           
-          {actionMessage && (
-            <div className="h-12 bg-blue-900/20 border-t border-blue-800/50 flex items-center px-4 text-blue-300 text-sm font-medium animate-pulse">
+          {actionMessage && !showRunPanel && (
+            <div className="h-12 bg-blue-900/20 border-t border-blue-800/50 flex items-center px-4 text-blue-300 text-sm font-medium animate-pulse shrink-0">
               {actionMessage}
             </div>
           )}

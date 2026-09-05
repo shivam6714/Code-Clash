@@ -20,6 +20,24 @@ export interface JudgeResult {
   errorMessage?: string;
 }
 
+export interface TestCaseResult {
+  input: string;
+  expectedOutput: string;
+  actualOutput: string;
+  passed: boolean;
+  status: SubmissionStatus;
+  executionTime?: number;
+  errorMessage?: string;
+}
+
+export interface RunResult {
+  status: SubmissionStatus;
+  passedTests: number;
+  totalTests: number;
+  testResults: TestCaseResult[];
+  errorMessage?: string;
+}
+
 export interface TestCase {
   input: string;
   expectedOutput: string;

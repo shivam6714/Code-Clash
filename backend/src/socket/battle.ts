@@ -77,7 +77,7 @@ const startBattle = (io: Server, battle: BattleRoom) => {
   }, BATTLE_DURATION_MS);
 };
 
-import { executeSubmission } from '../execution/runner';
+import { executeSubmission, executeRun } from '../execution/runner';
 import { SubmissionStatus } from '../execution/types';
 
 export const handleBattleEvents = (io: Server, socket: Socket) => {
@@ -124,6 +124,36 @@ export const handleBattleEvents = (io: Server, socket: Socket) => {
     } else {
       io.to(opponent.socketId).emit('battle:opponent-status', { status: 'Connected' });
     }
+  });
+
+  socket.on('battle:run', async (data: { sourceCode: string, language: any }) => {
+    const battleId = userBattles.get(userId);
+    if (!battleId) return;
+
+    const battle = activeBattles.get(battleId);
+    if (!battle || battle.status !== BattleState.ACTIVE) return;
+
+    const player = battle.player1.userId === userId ? battle.player1 : battle.player2;
+
+    // Rate limiting for Run: 2 seconds independently from submit
+    const now = Date.now();
+    if (player.lastRunAt && now - player.lastRunAt < 2000) {
+      return socket.emit('battle:run-result', { status: 'RATE_LIMITED', errorMessage: 'Please wait before running again.' });
+    }
+    player.lastRunAt = now;
+    
+    const { sourceCode, language } = data;
+    const supportedLangs = ['cpp', 'python', 'java', 'javascript'];
+    if (!supportedLangs.includes(language)) {
+       return socket.emit('battle:run-result', { status: 'SYSTEM_ERROR', errorMessage: 'Invalid language' });
+    }
+
+    // Filter test cases to only visible ones (isHidden === false)
+    const visibleTestCases = battle.problem.testCases.filter((tc: any) => tc.isHidden === false);
+
+    const result = await executeRun(sourceCode, language, visibleTestCases);
+
+    socket.emit('battle:run-result', result);
   });
 
   socket.on('battle:leave', () => {
