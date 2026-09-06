@@ -15,7 +15,7 @@ int main() {
   `;
   console.log('Testing C++...');
   const resCpp = await executeSubmission(codeCpp, 'cpp' as SupportedLanguage, [
-    { input: '2 3', expectedOutput: '5' }
+    { input: '2 3', expectedOutput: '5', isHidden: false }
   ]);
   console.log('C++ result:', resCpp);
 
@@ -25,7 +25,7 @@ print(a + b)
   `;
   console.log('Testing Python...');
   const resPy = await executeSubmission(codePy, 'python' as SupportedLanguage, [
-    { input: '2 3', expectedOutput: '5' }
+    { input: '2 3', expectedOutput: '5', isHidden: false }
   ]);
   console.log('Python result:', resPy);
 }
