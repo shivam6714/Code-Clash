@@ -2,7 +2,14 @@ import { DockerSandbox } from './sandbox';
 import { SubmissionStatus, JudgeResult, RunResult, TestCaseResult, TestCase, LanguageAdapter } from './types';
 
 const normalizeOutput = (str: string): string => {
-  return str.replace(/\\r\\n/g, '\n').trim();
+  if (!str) return '';
+  return str
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map(line => line.trimEnd())
+    .join('\n')
+    .trim();
 };
 
 export const runJudge = async (

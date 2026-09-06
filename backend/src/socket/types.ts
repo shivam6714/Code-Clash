@@ -10,8 +10,10 @@ export interface BattlePlayer {
   userId: string;
   username: string;
   socketId: string;
+  rating?: number;
   hasSubmitted: boolean;
   connected: boolean;
+  explicitlyLeft?: boolean;
   lastSubmissionAt?: number;
   lastRunAt?: number;
 }
@@ -25,5 +27,8 @@ export interface BattleRoom {
   startedAt?: number;
   endsAt?: number;
   winner?: string;
+  eloData?: any;
+  settled?: boolean;
   timerInterval?: NodeJS.Timeout;
+  disconnectTimer?: NodeJS.Timeout;
 }

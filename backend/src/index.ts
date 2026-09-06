@@ -35,6 +35,13 @@ const startServer = async () => {
     await mongoose.connect(config.MONGODB_URI as string);
     console.log('MongoDB connection successful.');
     
+    // Auto-migrate legacy/missing ratings to default 300 ELO
+    const { User } = await import('./models/User');
+    await User.updateMany(
+      { $or: [{ rating: { $exists: false } }, { rating: 1000 }] },
+      { $set: { rating: 300, highestRating: 300 } }
+    );
+    
     httpServer.listen(config.PORT, () => {
       console.log(`Backend is healthy and running on port ${config.PORT}`);
     });

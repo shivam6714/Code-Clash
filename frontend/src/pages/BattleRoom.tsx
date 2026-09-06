@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { socket } from '../socket';
+import { useAuth } from '../context/AuthContext';
 
 const SUPPORTED_LANGUAGES = [
   { id: 'cpp', name: 'C++' },
@@ -11,9 +12,10 @@ const SUPPORTED_LANGUAGES = [
 ];
 
 const BattleRoom: React.FC = () => {
-  useParams();
+  const { battleId } = useParams<{ battleId: string }>();
   const navigate = useNavigate();
-
+  const { user, updateUser } = useAuth();
+  
   const [status, setStatus] = useState<'WAITING' | 'COUNTDOWN' | 'ACTIVE' | 'FINISHED' | 'CANCELLED'>('WAITING');
   const [countdown, setCountdown] = useState<number | null>(null);
   const [problem, setProblem] = useState<any>(null);
@@ -23,6 +25,7 @@ const BattleRoom: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
   const [endReason, setEndReason] = useState<string | null>(null);
+  const [eloResult, setEloResult] = useState<any | null>(null);
 
   const [language, setLanguage] = useState(SUPPORTED_LANGUAGES[0].id);
   const [codes, setCodes] = useState<Record<string, string>>({});
@@ -33,25 +36,28 @@ const BattleRoom: React.FC = () => {
   const [showRunPanel, setShowRunPanel] = useState(false);
 
   useEffect(() => {
-    // If socket isn't connected, we shouldn't be here
-    if (!socket.connected) {
-       navigate('/find-match');
-    }
-
     const handleBattleStarted = (data: any) => {
       setProblem(data.problem);
-      setPlayers({ me: data.player1.username, opponent: data.player2.username }); // This might be slightly inaccurate mapping for me vs opponent, but we rely on username for display
+      setPlayers({ me: data.player1.username, opponent: data.player2.username });
       setEndTime(data.endsAt);
       setStatus('ACTIVE');
       
-      // Initialize code
-      const initialCodes: Record<string, string> = {};
-      for (const lang of SUPPORTED_LANGUAGES) {
-        initialCodes[lang.id] = data.problem.starterCode[lang.id] || `// No starter code for ${lang.name}`;
-      }
-      setCodes(initialCodes);
+      // Preserve current user edits if rejoining
+      setCodes(prev => {
+        if (Object.keys(prev).length > 0) return prev;
+        const initialCodes: Record<string, string> = {};
+        for (const lang of SUPPORTED_LANGUAGES) {
+          initialCodes[lang.id] = data.problem.starterCode[lang.id] || `// No starter code for ${lang.name}`;
+        }
+        return initialCodes;
+      });
     };
 
+    const handleRejoinFailed = () => {
+      navigate('/find-match');
+    };
+
+    socket.on('battle:rejoin-failed', handleRejoinFailed);
     socket.on('battle:countdown', (data) => {
       setStatus('COUNTDOWN');
       setCountdown(data.count);
@@ -62,6 +68,28 @@ const BattleRoom: React.FC = () => {
     socket.on('battle:ended', (data) => {
       setStatus('FINISHED');
       setEndReason(data.reason);
+      if (data.eloData) {
+        setEloResult(data.eloData);
+        updateUser((prev) => {
+          if (!prev) return {};
+          const currentUserId = prev.id || (prev as any)._id;
+          const winnerId = data.eloData.winnerId || data.eloData.winnerUserId;
+          const loserId = data.eloData.loserId || data.eloData.loserUserId;
+
+          if (currentUserId === winnerId) {
+            return {
+              rating: data.eloData.winnerEloAfter,
+              wins: (prev.wins || 0) + 1,
+            };
+          } else if (currentUserId === loserId) {
+            return {
+              rating: data.eloData.loserEloAfter,
+              losses: (prev.losses || 0) + 1,
+            };
+          }
+          return {};
+        });
+      }
     });
 
     socket.on('battle:opponent-left', (data) => {
@@ -95,11 +123,25 @@ const BattleRoom: React.FC = () => {
       } else {
         setRunResult(data);
         setShowRunPanel(true);
-        setActionMessage(null); // Clear action message if run succeeds
+        setActionMessage(null);
       }
     });
 
+    const attemptRejoin = () => {
+      if (battleId) {
+        socket.emit('battle:rejoin', { battleId });
+      }
+    };
+
+    if (socket.connected) {
+      attemptRejoin();
+    } else {
+      socket.once('connect', attemptRejoin);
+    }
+
     return () => {
+      socket.off('connect', attemptRejoin);
+      socket.off('battle:rejoin-failed', handleRejoinFailed);
       socket.off('battle:countdown');
       socket.off('battle:started');
       socket.off('battle:ended');
@@ -108,7 +150,7 @@ const BattleRoom: React.FC = () => {
       socket.off('battle:submission-result');
       socket.off('battle:run-result');
     };
-  }, [navigate]);
+  }, [navigate, battleId]);
 
   // Timer effect
   useEffect(() => {
@@ -228,13 +270,79 @@ const BattleRoom: React.FC = () => {
       <div className="flex flex-col md:flex-row flex-grow overflow-hidden relative">
         {(status === 'FINISHED' || status === 'CANCELLED') && (
           <div className="absolute inset-0 bg-dark-900/80 z-50 flex items-center justify-center backdrop-blur-sm">
-             <div className="bg-dark-800 p-8 rounded-xl border border-dark-700 text-center max-w-md">
-                <h2 className="text-3xl font-bold text-white mb-2">{status === 'FINISHED' ? 'Time is Up!' : 'Battle Cancelled'}</h2>
-                <p className="text-gray-300 mb-6">{endReason}</p>
-                <button onClick={() => navigate('/find-match')} className="bg-primary-600 hover:bg-primary-500 text-white font-bold py-3 px-6 rounded-lg">
-                  Return to Matchmaking
-                </button>
-             </div>
+             {eloResult ? (
+               (() => {
+                 const currentUserId = user?.id || (user as any)?._id;
+                 const winnerId = eloResult.winnerId || eloResult.winnerUserId;
+                 const loserId = eloResult.loserId || eloResult.loserUserId;
+
+                 const isWinner = !!(currentUserId && currentUserId === winnerId);
+                 const isLoser = !!(currentUserId && currentUserId === loserId);
+
+                 if (isWinner) {
+                   return (
+                     <div className="bg-dark-800 p-8 rounded-xl border border-green-500/30 text-center max-w-md shadow-2xl w-full mx-4">
+                       <h2 className="text-4xl font-extrabold text-green-400 mb-2 flex items-center justify-center gap-2">
+                         🏆 Victory
+                       </h2>
+                       <div className="my-6 p-4 bg-dark-900/60 rounded-lg border border-dark-700">
+                         <div className="text-3xl font-black text-green-400 mb-1">
+                           +{eloResult.winnerEloChange} ELO
+                         </div>
+                         <div className="text-gray-400 text-lg font-mono">
+                           {eloResult.winnerEloBefore} → {eloResult.winnerEloAfter}
+                         </div>
+                       </div>
+                       <p className="text-gray-300 mb-6">{endReason}</p>
+                       <button onClick={() => navigate('/find-match')} className="bg-primary-600 hover:bg-primary-500 text-white font-bold py-3 px-6 rounded-lg w-full transition-colors">
+                         Return to Matchmaking
+                       </button>
+                     </div>
+                   );
+                 }
+
+                 if (isLoser) {
+                   const title = eloResult.isAbandonment ? 'BATTLE ABANDONED' : 'Defeat';
+                   return (
+                     <div className="bg-dark-800 p-8 rounded-xl border border-red-500/30 text-center max-w-md shadow-2xl w-full mx-4">
+                       <h2 className="text-4xl font-extrabold text-red-400 mb-2 flex items-center justify-center gap-2">
+                         {title}
+                       </h2>
+                       <div className="my-6 p-4 bg-dark-900/60 rounded-lg border border-dark-700">
+                         <div className="text-3xl font-black text-red-400 mb-1">
+                           -{eloResult.loserEloChange} ELO
+                         </div>
+                         <div className="text-gray-400 text-lg font-mono">
+                           {eloResult.loserEloBefore} → {eloResult.loserEloAfter}
+                         </div>
+                       </div>
+                       <p className="text-gray-300 mb-6">{endReason}</p>
+                       <button onClick={() => navigate('/find-match')} className="bg-primary-600 hover:bg-primary-500 text-white font-bold py-3 px-6 rounded-lg w-full transition-colors">
+                         Return to Matchmaking
+                       </button>
+                     </div>
+                   );
+                 }
+
+                 return (
+                   <div className="bg-dark-800 p-8 rounded-xl border border-dark-700 text-center max-w-md">
+                      <h2 className="text-3xl font-bold text-white mb-2">{status === 'FINISHED' ? 'Battle Ended' : 'Battle Cancelled'}</h2>
+                      <p className="text-gray-300 mb-6">{endReason}</p>
+                      <button onClick={() => navigate('/find-match')} className="bg-primary-600 hover:bg-primary-500 text-white font-bold py-3 px-6 rounded-lg">
+                        Return to Matchmaking
+                      </button>
+                   </div>
+                 );
+               })()
+             ) : (
+               <div className="bg-dark-800 p-8 rounded-xl border border-dark-700 text-center max-w-md">
+                  <h2 className="text-3xl font-bold text-white mb-2">{status === 'FINISHED' ? 'Battle Ended' : 'Battle Cancelled'}</h2>
+                  <p className="text-gray-300 mb-6">{endReason}</p>
+                  <button onClick={() => navigate('/find-match')} className="bg-primary-600 hover:bg-primary-500 text-white font-bold py-3 px-6 rounded-lg">
+                    Return to Matchmaking
+                  </button>
+               </div>
+             )}
           </div>
         )}
 

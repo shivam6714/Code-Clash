@@ -6,6 +6,7 @@ interface QueueEntry {
   userId: string;
   username: string;
   socketId: string;
+  rating: number;
 }
 
 const matchmakingQueue: QueueEntry[] = [];
@@ -14,6 +15,7 @@ const userSockets = new Map<string, string>(); // userId -> socketId to prevent 
 export const handleMatchmaking = (io: Server, socket: Socket) => {
   const userId = (socket as any).userId;
   const username = (socket as any).username;
+  const rating = (socket as any).rating ?? 300;
 
   socket.on('matchmaking:join', () => {
     // Prevent joining if already in a battle
@@ -28,7 +30,7 @@ export const handleMatchmaking = (io: Server, socket: Socket) => {
 
     userSockets.set(userId, socket.id);
     
-    const entry: QueueEntry = { userId, username, socketId: socket.id };
+    const entry: QueueEntry = { userId, username, socketId: socket.id, rating };
     socket.emit('matchmaking:queued', { message: 'Searching for opponent...' });
     
     // Check if someone else is in the queue

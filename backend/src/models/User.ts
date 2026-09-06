@@ -43,11 +43,13 @@ const userSchema = new Schema<IUser>(
     },
     rating: {
       type: Number,
-      default: 1000,
+      default: 300,
+      min: 0,
     },
     highestRating: {
       type: Number,
-      default: 1000,
+      default: 300,
+      min: 0,
     },
     wins: {
       type: Number,

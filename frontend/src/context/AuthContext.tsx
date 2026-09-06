@@ -21,6 +21,7 @@ interface AuthContextType {
   login: (credentials: any) => Promise<void>;
   register: (credentials: any) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (updater: Partial<User> | ((prev: User | null) => Partial<User>)) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -65,6 +66,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
   };
 
+  const updateUser = (updater: Partial<User> | ((prev: User | null) => Partial<User>)) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const partial = typeof updater === 'function' ? updater(prev) : updater;
+      const newRating = partial.rating !== undefined ? partial.rating : prev.rating;
+      return {
+        ...prev,
+        ...partial,
+        highestRating: Math.max(prev.highestRating || 300, newRating),
+      };
+    });
+  };
+
   const value = {
     user,
     isLoading,
@@ -72,6 +86,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     login,
     register,
     logout,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

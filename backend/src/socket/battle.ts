@@ -3,10 +3,31 @@ import { v4 as uuidv4 } from 'uuid';
 import { BattleState, BattleRoom, BattlePlayer } from './types';
 import { selectBattleProblem } from './problemSelection';
 import { removeUserFromQueue } from './matchmaking';
+import { User } from '../models/User';
 
 // In-memory battle storage
 export const activeBattles = new Map<string, BattleRoom>();
 export const userBattles = new Map<string, string>(); // userId -> battleId
+
+export const calculateEloChange = (ratingA: number, ratingB: number, K: number = 32) => {
+  const expectedScoreA = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+  const expectedScoreB = 1 / (1 + Math.pow(10, (ratingA - ratingB) / 400));
+
+  const winnerChange = Math.round(K * (1 - expectedScoreA));
+  const loserChange = Math.round(K * (0 - expectedScoreB));
+
+  const newRatingA = Math.max(0, ratingA + winnerChange);
+  const newRatingB = Math.max(0, ratingB + loserChange);
+
+  return {
+    winnerEloBefore: ratingA,
+    winnerEloAfter: newRatingA,
+    winnerEloChange: newRatingA - ratingA,
+    loserEloBefore: ratingB,
+    loserEloAfter: newRatingB,
+    loserEloChange: newRatingB - ratingB,
+  };
+};
 
 const BATTLE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const DISCONNECT_GRACE_PERIOD_MS = 10 * 1000; // 10 seconds
@@ -43,11 +64,15 @@ const startCountdown = (io: Server, battle: BattleRoom) => {
   battle.status = BattleState.COUNTDOWN;
   
   let count = 3;
+  // Emit count = 3 immediately so clients enter countdown mode without delay
+  io.to(battle.player1.socketId).emit('battle:countdown', { count });
+  io.to(battle.player2.socketId).emit('battle:countdown', { count });
+
   const interval = setInterval(() => {
+    count--;
     if (count > 0) {
       io.to(battle.player1.socketId).emit('battle:countdown', { count });
       io.to(battle.player2.socketId).emit('battle:countdown', { count });
-      count--;
     } else {
       clearInterval(interval);
       startBattle(io, battle);
@@ -120,7 +145,7 @@ export const handleBattleEvents = (io: Server, socket: Socket) => {
 
     if (result.status === SubmissionStatus.ACCEPTED && battle.status === BattleState.ACTIVE) {
       // Winner!
-      endBattle(io, battle, `${player.username} has solved the problem!`);
+      await endBattle(io, battle, `${player.username} has solved the problem!`, player.userId);
     } else {
       io.to(opponent.socketId).emit('battle:opponent-status', { status: 'Connected' });
     }
@@ -156,14 +181,83 @@ export const handleBattleEvents = (io: Server, socket: Socket) => {
     socket.emit('battle:run-result', result);
   });
 
+  socket.on('battle:get-active', () => {
+    const battleId = userBattles.get(userId);
+    if (!battleId) {
+      return socket.emit('battle:active-status', { hasActiveBattle: false });
+    }
+
+    const battle = activeBattles.get(battleId);
+    if (!battle || battle.settled || battle.status === BattleState.FINISHED || battle.status === BattleState.CANCELLED) {
+      userBattles.delete(userId);
+      return socket.emit('battle:active-status', { hasActiveBattle: false });
+    }
+
+    const player = battle.player1.userId === userId ? battle.player1 : battle.player2;
+    if (player.explicitlyLeft) {
+      userBattles.delete(userId);
+      return socket.emit('battle:active-status', { hasActiveBattle: false });
+    }
+
+    socket.emit('battle:active-status', {
+      hasActiveBattle: true,
+      battleId: battle.battleId,
+      status: battle.status,
+      problemTitle: battle.problem?.title || 'Active Problem',
+    });
+  });
+
+  socket.on('battle:rejoin', (data: { battleId: string }) => {
+    const userBattleId = userBattles.get(userId);
+    if (!userBattleId || userBattleId !== data.battleId) {
+      return socket.emit('battle:rejoin-failed', { message: 'Invalid or inactive battle' });
+    }
+
+    const battle = activeBattles.get(data.battleId);
+    if (!battle || battle.settled || battle.status === BattleState.FINISHED || battle.status === BattleState.CANCELLED) {
+      return socket.emit('battle:rejoin-failed', { message: 'Battle has ended' });
+    }
+
+    const player = battle.player1.userId === userId ? battle.player1 : battle.player2;
+    const opponent = battle.player1.userId === userId ? battle.player2 : battle.player1;
+
+    if (player.explicitlyLeft) {
+      return socket.emit('battle:rejoin-failed', { message: 'You have left this battle' });
+    }
+
+    player.socketId = socket.id;
+    player.connected = true;
+
+    if (battle.disconnectTimer) {
+      clearTimeout(battle.disconnectTimer);
+      battle.disconnectTimer = undefined;
+    }
+
+    if (battle.status === BattleState.ACTIVE) {
+      socket.emit('battle:started', {
+        battleId: battle.battleId,
+        problem: battle.problem,
+        startedAt: battle.startedAt,
+        endsAt: battle.endsAt,
+        player1: { username: player.username },
+        player2: { username: opponent.username }
+      });
+    }
+
+    io.to(opponent.socketId).emit('battle:opponent-status', { status: 'Connected' });
+  });
+
   socket.on('battle:leave', () => {
     const battleId = userBattles.get(userId);
     if (!battleId) return;
 
     const battle = activeBattles.get(battleId);
-    if (!battle) return;
+    if (!battle || battle.settled || battle.status === BattleState.FINISHED || battle.status === BattleState.CANCELLED) return;
 
-    cancelBattle(io, battle, userId);
+    const player = battle.player1.userId === userId ? battle.player1 : battle.player2;
+    player.explicitlyLeft = true;
+
+    handleAbandonment(io, battle, userId, true);
   });
 };
 
@@ -176,37 +270,198 @@ export const handleDisconnect = (io: Server, socket: Socket) => {
   const battleId = userBattles.get(userId);
   if (battleId) {
     const battle = activeBattles.get(battleId);
-    if (battle && (battle.status === BattleState.ACTIVE || battle.status === BattleState.WAITING || battle.status === BattleState.COUNTDOWN)) {
+    if (battle && !battle.settled && (battle.status === BattleState.ACTIVE || battle.status === BattleState.WAITING || battle.status === BattleState.COUNTDOWN)) {
       const player = battle.player1.userId === userId ? battle.player1 : battle.player2;
       const opponent = battle.player1.userId === userId ? battle.player2 : battle.player1;
       
+      if (player.explicitlyLeft) return;
+
       player.connected = false;
       io.to(opponent.socketId).emit('battle:opponent-status', { status: 'Disconnected' });
 
-      // Grace period for reconnection
-      setTimeout(() => {
+      // Grace period for unexpected reconnection
+      if (battle.disconnectTimer) clearTimeout(battle.disconnectTimer);
+      battle.disconnectTimer = setTimeout(() => {
         const currentBattle = activeBattles.get(battleId);
-        if (currentBattle && !player.connected) {
-           cancelBattle(io, currentBattle, userId);
+        if (currentBattle && !currentBattle.settled && !player.connected) {
+           handleAbandonment(io, currentBattle, userId, false);
         }
       }, DISCONNECT_GRACE_PERIOD_MS);
     }
   }
 };
 
-const endBattle = (io: Server, battle: BattleRoom, reason: string) => {
+const handleAbandonment = async (
+  io: Server,
+  battle: BattleRoom,
+  abandonerUserId: string,
+  isVoluntary: boolean
+) => {
+  if (battle.settled || battle.status === BattleState.FINISHED || battle.status === BattleState.CANCELLED) {
+    return;
+  }
+  battle.settled = true;
   battle.status = BattleState.FINISHED;
-  if (battle.timerInterval) clearTimeout(battle.timerInterval);
 
-  io.to(battle.player1.socketId).emit('battle:ended', { reason });
-  io.to(battle.player2.socketId).emit('battle:ended', { reason });
+  if (battle.timerInterval) clearTimeout(battle.timerInterval);
+  if (battle.disconnectTimer) {
+    clearTimeout(battle.disconnectTimer);
+    battle.disconnectTimer = undefined;
+  }
+
+  const abandonerPlayer = battle.player1.userId === abandonerUserId ? battle.player1 : battle.player2;
+  const opponentPlayer = battle.player1.userId === abandonerUserId ? battle.player2 : battle.player1;
+
+  let eloData: any = null;
+
+  try {
+    const [abandonerUser, opponentUser] = await Promise.all([
+      User.findById(abandonerPlayer.userId),
+      User.findById(opponentPlayer.userId),
+    ]);
+
+    if (abandonerUser && opponentUser) {
+      const abandonerEloBefore = abandonerUser.rating ?? 300;
+      const opponentEloBefore = opponentUser.rating ?? 300;
+
+      const abandonerEloAfter = Math.max(0, abandonerEloBefore - 5);
+      const abandonerEloChange = abandonerEloBefore - abandonerEloAfter;
+
+      const opponentEloAfter = opponentEloBefore;
+      const opponentEloChange = 0;
+
+      abandonerUser.rating = abandonerEloAfter;
+      abandonerUser.losses = (abandonerUser.losses || 0) + 1;
+      await abandonerUser.save();
+
+      opponentUser.wins = (opponentUser.wins || 0) + 1;
+      await opponentUser.save();
+
+      eloData = {
+        winnerId: opponentPlayer.userId,
+        loserId: abandonerPlayer.userId,
+        winnerUserId: opponentPlayer.userId,
+        loserUserId: abandonerPlayer.userId,
+        winnerEloBefore: opponentEloBefore,
+        winnerEloAfter: opponentEloAfter,
+        winnerEloChange: opponentEloChange,
+        loserEloBefore: abandonerEloBefore,
+        loserEloAfter: abandonerEloAfter,
+        loserEloChange: abandonerEloChange,
+        isAbandonment: true,
+        isVoluntary,
+      };
+      battle.eloData = eloData;
+    }
+  } catch (err) {
+    console.error('Failed to settle abandonment ELO:', err);
+  }
+
+  const abandonerReason = isVoluntary 
+    ? 'You left the battle.' 
+    : 'You disconnected and failed to reconnect.';
+  const opponentReason = isVoluntary 
+    ? 'Opponent left the battle.' 
+    : 'Opponent disconnected and failed to reconnect.';
+
+  const abandonerPayload = {
+    reason: abandonerReason,
+    winnerUserId: opponentPlayer.userId,
+    eloData: eloData || battle.eloData || null,
+  };
+
+  const opponentPayload = {
+    reason: opponentReason,
+    winnerUserId: opponentPlayer.userId,
+    eloData: eloData || battle.eloData || null,
+  };
+
+  io.to(abandonerPlayer.socketId).emit('battle:ended', abandonerPayload);
+  io.to(opponentPlayer.socketId).emit('battle:ended', opponentPayload);
+
+  cleanupBattle(battle.battleId);
+};
+
+const endBattle = async (io: Server, battle: BattleRoom, reason: string, winnerUserId?: string) => {
+  // ATOMIC GUARD: Ensure endBattle is executed exactly once per battle
+  if (battle.settled || battle.status === BattleState.FINISHED || battle.status === BattleState.CANCELLED) {
+    return;
+  }
+  battle.settled = true;
+  battle.status = BattleState.FINISHED;
+
+  if (battle.timerInterval) clearTimeout(battle.timerInterval);
+  if (battle.disconnectTimer) {
+    clearTimeout(battle.disconnectTimer);
+    battle.disconnectTimer = undefined;
+  }
+
+  let eloData: any = null;
+
+  if (winnerUserId) {
+    const winnerPlayer = battle.player1.userId === winnerUserId ? battle.player1 : battle.player2;
+    const loserPlayer = battle.player1.userId === winnerUserId ? battle.player2 : battle.player1;
+
+    try {
+      const [winnerUser, loserUser] = await Promise.all([
+        User.findById(winnerPlayer.userId),
+        User.findById(loserPlayer.userId),
+      ]);
+
+      if (winnerUser && loserUser) {
+        const winnerRating = winnerUser.rating ?? 300;
+        const loserRating = loserUser.rating ?? 300;
+
+        const eloCalc = calculateEloChange(winnerRating, loserRating, 32);
+
+        winnerUser.rating = eloCalc.winnerEloAfter;
+        winnerUser.highestRating = Math.max(winnerUser.highestRating ?? 300, eloCalc.winnerEloAfter);
+        winnerUser.wins = (winnerUser.wins || 0) + 1;
+        await winnerUser.save();
+
+        loserUser.rating = eloCalc.loserEloAfter;
+        loserUser.losses = (loserUser.losses || 0) + 1;
+        await loserUser.save();
+
+        eloData = {
+          winnerId: winnerUserId,
+          loserId: loserPlayer.userId,
+          winnerUserId,
+          loserUserId: loserPlayer.userId,
+          winnerEloBefore: eloCalc.winnerEloBefore,
+          winnerEloAfter: eloCalc.winnerEloAfter,
+          winnerEloChange: eloCalc.winnerEloChange,
+          loserEloBefore: eloCalc.loserEloBefore,
+          loserEloAfter: eloCalc.loserEloAfter,
+          loserEloChange: eloCalc.loserEloChange,
+        };
+        battle.eloData = eloData;
+      }
+    } catch (err) {
+      console.error('Failed to calculate/save ELO:', err);
+    }
+  }
+
+  const endPayload = {
+    reason,
+    winnerUserId: winnerUserId || null,
+    eloData: eloData || battle.eloData || null,
+  };
+
+  io.to(battle.player1.socketId).emit('battle:ended', endPayload);
+  io.to(battle.player2.socketId).emit('battle:ended', endPayload);
 
   cleanupBattle(battle.battleId);
 };
 
 const cancelBattle = (io: Server, battle: BattleRoom, leavingUserId: string) => {
+  if (battle.settled || battle.status === BattleState.FINISHED || battle.status === BattleState.CANCELLED) {
+    return;
+  }
+  battle.settled = true;
   battle.status = BattleState.CANCELLED;
   if (battle.timerInterval) clearTimeout(battle.timerInterval);
+  if (battle.disconnectTimer) clearTimeout(battle.disconnectTimer);
 
   const opponent = battle.player1.userId === leavingUserId ? battle.player2 : battle.player1;
   io.to(opponent.socketId).emit('battle:opponent-left', { message: 'Opponent has left the battle.' });

@@ -28,7 +28,7 @@ export const setupSocket = (server: HttpServer) => {
 
       const decoded = jwt.verify(token, config.JWT_SECRET) as { id: string };
       
-      const user = await User.findById(decoded.id).select('username');
+      const user = await User.findById(decoded.id).select('username rating');
       if (!user) {
         return next(new Error('Authentication error: User not found'));
       }
@@ -36,6 +36,7 @@ export const setupSocket = (server: HttpServer) => {
       // Attach user info to socket
       (socket as any).userId = decoded.id;
       (socket as any).username = user.username;
+      (socket as any).rating = user.rating ?? 300;
       
       next();
     } catch (err) {
