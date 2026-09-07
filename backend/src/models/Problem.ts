@@ -42,13 +42,13 @@ export interface IProblem extends Document {
 
 const exampleSchema = new Schema<IExample>({
   input: { type: String, required: true },
-  output: { type: String, required: true },
+  output: { type: String, default: '' },
   explanation: { type: String },
 });
 
 const testCaseSchema = new Schema<ITestCase>({
   input: { type: String, required: true },
-  expectedOutput: { type: String, required: true },
+  expectedOutput: { type: String, default: '' },
   isHidden: { type: Boolean, required: true, default: true },
 });
 

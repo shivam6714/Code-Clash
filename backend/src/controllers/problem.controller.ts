@@ -3,7 +3,7 @@ import { Problem, Difficulty } from '../models/Problem';
 
 export const getProblems = async (req: Request, res: Response) => {
   try {
-    const { difficulty, topic } = req.query;
+    const { difficulty, topic, search } = req.query;
 
     const query: any = { isPublished: true };
 
@@ -14,9 +14,15 @@ export const getProblems = async (req: Request, res: Response) => {
       query.difficulty = difficulty;
     }
 
-    if (topic) {
-      // Use case-insensitive regex for topic filtering
-      query.topics = { $regex: new RegExp(`^${topic}$`, 'i') };
+    const searchTerm = (search || topic || '').toString().trim();
+    if (searchTerm) {
+      const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escaped, 'i');
+      query.$or = [
+        { title: { $regex: regex } },
+        { topics: { $elemMatch: { $regex: regex } } },
+        { topics: { $regex: regex } }
+      ];
     }
 
     const problems = await Problem.find(query)

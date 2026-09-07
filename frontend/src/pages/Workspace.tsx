@@ -140,7 +140,7 @@ const Workspace: React.FC = () => {
           <select 
             value={language}
             onChange={handleLanguageChange}
-            className="bg-dark-900 border border-dark-600 text-gray-300 text-sm rounded-md focus:ring-primary-500 focus:border-primary-500 block p-1.5"
+            className="bg-dark-900 border border-dark-600 text-gray-300 text-sm rounded-md focus:ring-zinc-400 focus:border-zinc-400 block p-1.5"
           >
             {SUPPORTED_LANGUAGES.map(lang => (
               <option key={lang.id} value={lang.id}>{lang.name}</option>
@@ -156,7 +156,7 @@ const Workspace: React.FC = () => {
             </button>
             <button 
               onClick={handleSubmit}
-              className="bg-primary-600 hover:bg-primary-500 text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+              className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
             >
               Submit
             </button>
@@ -183,7 +183,7 @@ const Workspace: React.FC = () => {
         
         {/* Action Message Bar */}
         {actionMessage && (
-          <div className="h-12 bg-blue-900/20 border-t border-blue-800/50 flex items-center px-4 text-blue-300 text-sm font-medium animate-pulse">
+          <div className="h-12 bg-zinc-800 border-t border-zinc-700 flex items-center px-4 text-zinc-300 text-sm font-medium animate-pulse">
             {actionMessage}
           </div>
         )}

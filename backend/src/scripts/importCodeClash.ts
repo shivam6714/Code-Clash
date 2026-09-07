@@ -3,6 +3,7 @@ import { config } from '../config/env';
 import { Problem } from '../models/Problem';
 import { executeSubmission, executeRun } from '../execution/runner';
 import * as batch1 from '../problems/datasets/batch1';
+import * as batch2 from '../problems/datasets/batch2';
 import { CodeClashProblemDefinition } from '../problems/datasets/types';
 
 const args = process.argv.slice(2);
@@ -26,6 +27,10 @@ const runImporter = async () => {
   
   if (batchName === 'batch1') {
     problemsToImport = Object.values(batch1);
+  } else if (batchName === 'batch2') {
+    problemsToImport = Object.values(batch2);
+  } else if (batchName === 'all') {
+    problemsToImport = [...Object.values(batch1), ...Object.values(batch2)];
   } else {
     console.error(`Batch ${batchName} not found.`);
     process.exit(1);

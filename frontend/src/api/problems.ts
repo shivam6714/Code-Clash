@@ -43,10 +43,11 @@ export interface Problem {
   updatedAt: string;
 }
 
-export const fetchProblems = async (difficulty?: string, topic?: string): Promise<ProblemListItem[]> => {
+export const fetchProblems = async (difficulty?: string, topic?: string, search?: string): Promise<ProblemListItem[]> => {
   const query = new URLSearchParams();
   if (difficulty) query.append('difficulty', difficulty);
-  if (topic) query.append('topic', topic);
+  const q = search || topic;
+  if (q) query.append('search', q);
   
   const queryString = query.toString();
   const endpoint = `/api/problems${queryString ? `?${queryString}` : ''}`;

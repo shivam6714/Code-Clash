@@ -223,7 +223,7 @@ const BattleRoom: React.FC = () => {
         <h1 className="text-4xl font-bold mb-4">Battle Found!</h1>
         <p className="text-xl text-gray-400 mb-8">Preparing arena...</p>
         {status === 'COUNTDOWN' && countdown !== null && (
-          <div className="text-9xl font-black text-primary-500 animate-pulse">
+          <div className="text-9xl font-black text-zinc-300 animate-pulse">
             {countdown}
           </div>
         )}
@@ -236,7 +236,7 @@ const BattleRoom: React.FC = () => {
        <div className="min-h-[calc(100vh-80px)] bg-dark-900 flex flex-col items-center justify-center text-white">
          <h1 className="text-3xl font-bold mb-4">Battle Ended</h1>
          <p className="text-gray-400">{endReason}</p>
-         <button onClick={() => navigate('/find-match')} className="mt-6 bg-primary-600 px-6 py-2 rounded">Back to Matchmaking</button>
+         <button onClick={() => navigate('/find-match')} className="mt-6 bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 px-6 py-2 rounded">Back to Matchmaking</button>
        </div>
      )
   }
@@ -294,7 +294,7 @@ const BattleRoom: React.FC = () => {
                          </div>
                        </div>
                        <p className="text-gray-300 mb-6">{endReason}</p>
-                       <button onClick={() => navigate('/find-match')} className="bg-primary-600 hover:bg-primary-500 text-white font-bold py-3 px-6 rounded-lg w-full transition-colors">
+                       <button onClick={() => navigate('/find-match')} className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-white font-bold py-3 px-6 rounded-lg w-full transition-colors">
                          Return to Matchmaking
                        </button>
                      </div>
@@ -317,7 +317,7 @@ const BattleRoom: React.FC = () => {
                          </div>
                        </div>
                        <p className="text-gray-300 mb-6">{endReason}</p>
-                       <button onClick={() => navigate('/find-match')} className="bg-primary-600 hover:bg-primary-500 text-white font-bold py-3 px-6 rounded-lg w-full transition-colors">
+                       <button onClick={() => navigate('/find-match')} className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-white font-bold py-3 px-6 rounded-lg w-full transition-colors">
                          Return to Matchmaking
                        </button>
                      </div>
@@ -328,7 +328,7 @@ const BattleRoom: React.FC = () => {
                    <div className="bg-dark-800 p-8 rounded-xl border border-dark-700 text-center max-w-md">
                       <h2 className="text-3xl font-bold text-white mb-2">{status === 'FINISHED' ? 'Battle Ended' : 'Battle Cancelled'}</h2>
                       <p className="text-gray-300 mb-6">{endReason}</p>
-                      <button onClick={() => navigate('/find-match')} className="bg-primary-600 hover:bg-primary-500 text-white font-bold py-3 px-6 rounded-lg">
+                      <button onClick={() => navigate('/find-match')} className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-white font-bold py-3 px-6 rounded-lg">
                         Return to Matchmaking
                       </button>
                    </div>
@@ -338,7 +338,7 @@ const BattleRoom: React.FC = () => {
                <div className="bg-dark-800 p-8 rounded-xl border border-dark-700 text-center max-w-md">
                   <h2 className="text-3xl font-bold text-white mb-2">{status === 'FINISHED' ? 'Battle Ended' : 'Battle Cancelled'}</h2>
                   <p className="text-gray-300 mb-6">{endReason}</p>
-                  <button onClick={() => navigate('/find-match')} className="bg-primary-600 hover:bg-primary-500 text-white font-bold py-3 px-6 rounded-lg">
+                  <button onClick={() => navigate('/find-match')} className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-white font-bold py-3 px-6 rounded-lg">
                     Return to Matchmaking
                   </button>
                </div>
@@ -388,7 +388,7 @@ const BattleRoom: React.FC = () => {
             <select 
               value={language}
               onChange={handleLanguageChange}
-              className="bg-dark-900 border border-dark-600 text-gray-300 text-sm rounded-md focus:ring-primary-500 focus:border-primary-500 block p-1.5"
+              className="bg-dark-900 border border-dark-600 text-gray-300 text-sm rounded-md focus:ring-zinc-400 focus:border-zinc-400 block p-1.5"
             >
               {SUPPORTED_LANGUAGES.map(lang => (
                 <option key={lang.id} value={lang.id}>{lang.name}</option>
@@ -406,7 +406,7 @@ const BattleRoom: React.FC = () => {
               <button 
                 onClick={handleSubmit}
                 disabled={status !== 'ACTIVE' || isJudging || isRunning}
-                className="bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+                className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 disabled:opacity-50 text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
               >
                 {isJudging ? 'Judging...' : 'Submit'}
               </button>
@@ -488,7 +488,7 @@ const BattleRoom: React.FC = () => {
           </div>
           
           {actionMessage && !showRunPanel && (
-            <div className="h-12 bg-blue-900/20 border-t border-blue-800/50 flex items-center px-4 text-blue-300 text-sm font-medium animate-pulse shrink-0">
+            <div className="h-12 bg-zinc-800 border-t border-zinc-700 flex items-center px-4 text-zinc-300 text-sm font-medium animate-pulse shrink-0">
               {actionMessage}
             </div>
           )}

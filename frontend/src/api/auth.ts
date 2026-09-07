@@ -23,3 +23,22 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
 
   return response.json();
 };
+
+export interface LeaderboardUser {
+  rank: number;
+  id: string;
+  name: string;
+  rating: number;
+  highestRating: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  winRate: string;
+  title: string;
+}
+
+export const fetchLeaderboard = async (): Promise<LeaderboardUser[]> => {
+  const data = await apiFetch('/api/auth/leaderboard');
+  return data.leaderboard || [];
+};
+

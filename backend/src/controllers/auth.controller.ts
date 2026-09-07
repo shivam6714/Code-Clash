@@ -149,3 +149,43 @@ export const me = (req: Request, res: Response) => {
 
   res.status(200).json({ user: userProfile });
 };
+
+export const getLeaderboard = async (req: Request, res: Response) => {
+  try {
+    const leaderboard = await User.find({})
+      .select('username rating highestRating wins losses draws createdAt')
+      .sort({ rating: -1 })
+      .limit(20)
+      .lean();
+
+    const formatted = leaderboard.map((user, index) => {
+      const total = (user.wins || 0) + (user.losses || 0) + (user.draws || 0);
+      const winRate = total > 0 ? `${Math.round(((user.wins || 0) / total) * 100)}%` : '0%';
+      
+      let title = '🗡️ Challenger';
+      if (user.rating >= 2200) title = '👑 Grandmaster';
+      else if (user.rating >= 1800) title = '💎 Master';
+      else if (user.rating >= 1500) title = '⚔️ Diamond';
+      else if (user.rating >= 1300) title = '🛡️ Platinum';
+
+      return {
+        rank: index + 1,
+        id: user._id,
+        name: user.username,
+        rating: user.rating,
+        highestRating: user.highestRating || user.rating,
+        wins: user.wins || 0,
+        losses: user.losses || 0,
+        draws: user.draws || 0,
+        winRate,
+        title,
+      };
+    });
+
+    res.status(200).json({ leaderboard: formatted });
+  } catch (error) {
+    console.error('Leaderboard error:', error);
+    res.status(500).json({ message: 'Failed to fetch leaderboard' });
+  }
+};
+

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { socket } from '../socket';
 
@@ -33,77 +33,135 @@ const Profile: React.FC = () => {
 
   if (!user) return null;
 
+  const totalMatches = (user.wins || 0) + (user.losses || 0) + (user.draws || 0);
+  const winRate = totalMatches > 0 ? Math.round(((user.wins || 0) / totalMatches) * 100) : 0;
+
+  const getRankTitle = (rating: number) => {
+    if (rating >= 2200) return { title: '👑 Grandmaster', color: 'text-amber-400 border-amber-500/30 bg-amber-500/10' };
+    if (rating >= 1800) return { title: '💎 Master', color: 'text-purple-400 border-purple-500/30 bg-purple-500/10' };
+    if (rating >= 1500) return { title: '⚔️ Diamond', color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10' };
+    if (rating >= 1300) return { title: '🛡️ Platinum', color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' };
+    return { title: '🗡️ Challenger', color: 'text-gray-300 border-gray-600 bg-gray-800' };
+  };
+
+  const rank = getRankTitle(user.rating || 1200);
+
   return (
-    <div className="min-h-screen bg-dark-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto space-y-8">
+    <div className="min-h-[calc(100vh-64px)] bg-dark-950 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        
+        {/* Active Battle Alert Banner */}
         {activeBattle && (
-          <div className="bg-dark-800 shadow rounded-lg p-6 border border-primary-500/50 bg-gradient-to-r from-dark-800 via-dark-800 to-primary-950/30">
+          <div className="bg-dark-900 p-6 rounded-2xl border border-amber-500/40">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-2xl">⚔️</span>
-                  <h2 className="text-xl font-bold text-white">Active Battle</h2>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl font-bold">
+                  ⚔️
                 </div>
-                <p className="text-gray-300 text-sm mt-1">
-                  You have an ongoing battle{activeBattle.problemTitle ? `: ${activeBattle.problemTitle}` : ''}
-                </p>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Active Battle In Progress</h3>
+                  <p className="text-xs text-gray-400 font-mono mt-0.5">
+                    {activeBattle.problemTitle ? `Challenge: ${activeBattle.problemTitle}` : 'Your duel is still live in the arena!'}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => navigate(`/battle/${activeBattle.battleId}`)}
-                className="w-full sm:w-auto bg-primary-600 hover:bg-primary-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg shadow-primary-500/20 transition-all transform hover:-translate-y-0.5 shrink-0"
+                className="w-full sm:w-auto py-2.5 px-5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs uppercase transition-colors"
               >
-                Return to Battle
+                Return to Arena →
               </button>
             </div>
           </div>
         )}
 
-        <div className="bg-dark-800 shadow rounded-lg p-6 border border-dark-700 flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-6">
-          <div className="h-24 w-24 bg-dark-700 rounded-full flex items-center justify-center text-3xl font-bold text-gray-400 border-2 border-primary-500">
-            {user.username.charAt(0).toUpperCase()}
-          </div>
-          <div className="text-center md:text-left">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-              <h1 className="text-3xl font-bold text-white">{user.username}</h1>
-              <span className="self-center sm:self-auto px-3 py-1 bg-primary-600/20 border border-primary-500/40 text-primary-400 font-extrabold text-sm rounded-full tracking-wide">
-                ELO {user.rating}
-              </span>
+        {/* Player Profile Card */}
+        <div className="bg-dark-900 p-8 rounded-2xl border border-zinc-800">
+          <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+            
+            {/* Avatar Circle */}
+            <div className="w-20 h-20 rounded-2xl bg-cyan-500 text-black font-black flex items-center justify-center text-3xl font-mono">
+              {user.username.charAt(0).toUpperCase()}
             </div>
-            <p className="text-gray-400 mt-1">{user.email}</p>
-            <p className="text-sm text-gray-500 mt-1">
-              Joined {new Date(user.createdAt).toLocaleDateString()}
-            </p>
+
+            {/* User Meta */}
+            <div className="flex-1 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <h1 className="text-2xl font-black text-white">{user.username}</h1>
+                <span className={`self-center sm:self-auto px-3 py-1 rounded-full text-xs font-mono font-bold border ${rank.color}`}>
+                  {rank.title}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 font-mono">{user.email}</p>
+              <p className="text-xs text-gray-500 font-mono">
+                Joined {new Date(user.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+
+            {/* Quick Matchmaking Trigger */}
+            <div className="w-full md:w-auto">
+              <Link
+                to="/find-match"
+                className="w-full py-3 px-6 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+              >
+                <span>⚔️</span>
+                <span>Enter Matchmaking</span>
+              </Link>
+            </div>
+
           </div>
         </div>
 
-        <div className="bg-dark-800 shadow rounded-lg p-6 border border-dark-700">
-          <h2 className="text-xl font-semibold text-white mb-6 border-b border-dark-700 pb-2">Statistics</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="bg-dark-900 p-4 rounded-lg border border-dark-600 text-center">
-              <p className="text-gray-400 text-sm">Rating</p>
-              <p className="text-2xl font-bold text-primary-400 mt-1">{user.rating}</p>
+        {/* Statistics Grid */}
+        <div className="bg-dark-900 p-8 rounded-2xl border border-zinc-800 space-y-6">
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+            <h2 className="text-lg font-bold text-white">ARENA PERFORMANCE STATS</h2>
+            <span className="text-xs font-mono text-cyan-400 font-bold">TOTAL DUELS: {totalMatches}</span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-dark-950 p-5 rounded-xl border border-zinc-800 text-center">
+              <span className="text-xs text-gray-400 font-mono block mb-1">Current Rating</span>
+              <span className="text-2xl font-mono font-black text-cyan-400">⚡ {user.rating}</span>
             </div>
-            <div className="bg-dark-900 p-4 rounded-lg border border-dark-600 text-center">
-              <p className="text-gray-400 text-sm">Highest Rating</p>
-              <p className="text-2xl font-bold text-purple-400 mt-1">{user.highestRating}</p>
+
+            <div className="bg-dark-950 p-5 rounded-xl border border-zinc-800 text-center">
+              <span className="text-xs text-gray-400 font-mono block mb-1">Peak Rating</span>
+              <span className="text-2xl font-mono font-black text-gray-200">👑 {user.highestRating || user.rating}</span>
             </div>
-            <div className="bg-dark-900 p-4 rounded-lg border border-dark-600 text-center">
-              <p className="text-gray-400 text-sm">Wins</p>
-              <p className="text-2xl font-bold text-green-400 mt-1">{user.wins}</p>
+
+            <div className="bg-dark-950 p-5 rounded-xl border border-zinc-800 text-center">
+              <span className="text-xs text-gray-400 font-mono block mb-1">Victories</span>
+              <span className="text-2xl font-mono font-black text-emerald-400">{user.wins || 0}</span>
             </div>
-            <div className="bg-dark-900 p-4 rounded-lg border border-dark-600 text-center">
-              <p className="text-gray-400 text-sm">Losses</p>
-              <p className="text-2xl font-bold text-red-400 mt-1">{user.losses}</p>
-            </div>
-            <div className="bg-dark-900 p-4 rounded-lg border border-dark-600 text-center col-span-2 md:col-span-4">
-              <p className="text-gray-400 text-sm">Draws</p>
-              <p className="text-2xl font-bold text-gray-300 mt-1">{user.draws}</p>
+
+            <div className="bg-dark-950 p-5 rounded-xl border border-zinc-800 text-center">
+              <span className="text-xs text-gray-400 font-mono block mb-1">Defeats</span>
+              <span className="text-2xl font-mono font-black text-rose-400">{user.losses || 0}</span>
             </div>
           </div>
+
+          {/* Win Rate Bar */}
+          <div className="bg-dark-950 p-4 rounded-xl border border-zinc-800 space-y-2">
+            <div className="flex justify-between text-xs font-mono">
+              <span className="text-gray-400">WIN RATE EFFICIENCY</span>
+              <span className="text-emerald-400 font-bold">{winRate}%</span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-cyan-400 transition-all duration-300"
+                style={{ width: `${winRate}%` }}
+              />
+            </div>
+          </div>
+
         </div>
+
       </div>
     </div>
   );
 };
 
 export default Profile;
+
+
