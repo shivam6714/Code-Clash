@@ -4,22 +4,43 @@ import { useAuth } from '../context/AuthContext';
 import { socket } from '../socket';
 import { fetchLeaderboard, LeaderboardUser } from '../api/auth';
 
+const Icons = {
+  Swords: () => (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  Zap: () => (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  ),
+  Trophy: () => (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+    </svg>
+  ),
+  Code: () => (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+    </svg>
+  ),
+};
+
 export const Landing: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
-  // Real Leaderboard State
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(true);
 
-  // Matchmaking State on Landing Page
   const [isSearching, setIsSearching] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('Ready to battle?');
+  const [statusMessage, setStatusMessage] = useState('Ready to enter ranked matchmaking');
   const [searchTime, setSearchTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // Fetch real signed in user rankings
   useEffect(() => {
     fetchLeaderboard()
       .then((data) => setLeaderboard(data))
@@ -27,11 +48,10 @@ export const Landing: React.FC = () => {
       .finally(() => setIsLoadingLeaderboard(false));
   }, []);
 
-  // Matchmaking socket listeners
   useEffect(() => {
     const handleQueued = (data: { message?: string }) => {
       setIsSearching(true);
-      setStatusMessage(data.message || 'Queued in matchmaking...');
+      setStatusMessage(data.message || 'Queued in ranked pool...');
       setError(null);
     };
 
@@ -41,7 +61,7 @@ export const Landing: React.FC = () => {
     };
 
     const handleFound = () => {
-      setStatusMessage('Opponent found! Initializing arena...');
+      setStatusMessage('Opponent matched! Initializing arena...');
     };
 
     const handleCreated = (data: { battleId: string }) => {
@@ -51,13 +71,13 @@ export const Landing: React.FC = () => {
 
     const handleIdle = () => {
       setIsSearching(false);
-      setStatusMessage('Ready to battle?');
+      setStatusMessage('Ready to enter ranked matchmaking');
     };
 
     const handleError = (err: { message?: string }) => {
       setError(err.message || 'Matchmaking error occurred.');
       setIsSearching(false);
-      setStatusMessage('Ready to battle?');
+      setStatusMessage('Ready to enter ranked matchmaking');
     };
 
     socket.on('matchmaking:queued', handleQueued);
@@ -77,12 +97,11 @@ export const Landing: React.FC = () => {
     };
   }, [navigate]);
 
-  // Searching Timer Effect
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isSearching) {
       timer = setInterval(() => {
-        setSearchTime(prev => prev + 1);
+        setSearchTime((prev) => prev + 1);
       }, 1000);
     } else {
       setSearchTime(0);
@@ -90,7 +109,6 @@ export const Landing: React.FC = () => {
     return () => clearInterval(timer);
   }, [isSearching]);
 
-  // Handle Direct Matchmaking Trigger
   const handleStartMatchmaking = () => {
     if (!isAuthenticated) {
       setShowAuthModal(true);
@@ -115,68 +133,70 @@ export const Landing: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-dark-950 text-gray-100 flex flex-col">
+    <div className="min-h-screen bg-[#07080c] text-zinc-100 flex flex-col relative ambient-grid">
       
+      {/* Top Ambient Glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-6xl h-96 bg-gradient-to-b from-cyan-500/15 via-blue-500/5 to-transparent pointer-events-none blur-3xl -z-0" />
+
       {/* Hero Section */}
-      <section className="pt-16 pb-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full text-center flex flex-col items-center">
+      <section className="pt-20 pb-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full text-center flex flex-col items-center relative z-10">
         
-        {/* Real Status Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-dark-900 border border-zinc-800 text-xs font-mono text-cyan-400 mb-8">
-          <span className="h-2 w-2 rounded-full bg-cyan-400"></span>
+        {/* Status Badge */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900/80 border border-white/[0.08] text-xs text-zinc-300 mb-8 backdrop-blur-md shadow-inner">
+          <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
           <span>
             {isAuthenticated && user 
-              ? `Logged in as ${user.username} (ELO ${user.rating || 300}) • Ready for Battle` 
-              : '1v1 Real-Time Competitive Coding Arena'}
+              ? `Logged in as ${user.username} (⚡ ${user.rating || 300} ELO)` 
+              : 'Competitive 1v1 Data Structures & Algorithms Battles'}
           </span>
         </div>
 
         {/* Main Headline */}
-        <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-tight max-w-4xl mb-6 text-white uppercase">
-          DOMINATE 1V1 REAL-TIME{' '}
-          <span className="text-cyan-400">DSA DUELS</span>
+        <h1 className="text-4xl sm:text-6xl font-bold tracking-tight leading-[1.1] max-w-3xl mb-6 text-white">
+          Real-time 1v1 coding duels for competitive programmers.
         </h1>
 
         {/* Subheading */}
-        <p className="text-base sm:text-lg text-gray-400 max-w-2xl leading-relaxed mb-10">
-          Pair up with programmers in real-time 1v1 data structure & algorithm battles. Write code in C++, Python, Java, or JS. First to pass all test cases wins ELO.
+        <p className="text-base sm:text-lg text-zinc-400 max-w-2xl leading-relaxed mb-10">
+          Match against fellow engineers in head-to-head algorithm battles. Write optimal solutions in C++, Python, Java, or JavaScript, submit against test cases, and climb the global leaderboard.
         </p>
 
         {/* Hero CTA & Interactive Matchmaking Console */}
-        <div className="w-full max-w-lg">
+        <div className="w-full max-w-md">
           {error && (
-            <div className="mb-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 p-3 rounded-xl text-sm font-semibold flex items-center justify-between">
+            <div className="mb-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 p-3 rounded-xl text-xs font-semibold flex items-center justify-between">
               <span>{error}</span>
               <button onClick={() => setError(null)} className="text-rose-400 hover:text-white font-bold ml-2">✕</button>
             </div>
           )}
 
           {isSearching ? (
-            <div className="bg-dark-900 p-8 rounded-2xl border border-cyan-500/40 text-center relative">
+            <div className="rounded-2xl border border-cyan-500/40 bg-zinc-900/80 backdrop-blur-xl p-8 text-center relative shadow-2xl shadow-cyan-500/10">
               <div className="w-12 h-12 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-white mb-1">{statusMessage}</h3>
+              <h3 className="text-base font-bold text-white mb-1">{statusMessage}</h3>
               <p className="text-xs text-cyan-400 font-mono mb-6">
-                QUEUE TIME: {formatSearchTime(searchTime)}
+                Queue Time: {formatSearchTime(searchTime)}
               </p>
               <button
                 onClick={handleCancelMatchmaking}
-                className="w-full py-3 px-6 rounded-xl bg-dark-800 hover:bg-dark-700 border border-zinc-700 text-gray-300 font-bold text-sm transition-colors"
+                className="w-full py-2.5 px-6 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 border border-white/[0.08] text-zinc-300 font-semibold text-xs transition-colors"
               >
                 Cancel Search
               </button>
             </div>
           ) : (
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-3.5 justify-center items-center">
               <button
                 onClick={handleStartMatchmaking}
-                className="w-full sm:w-auto min-w-[220px] py-4 px-8 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-base transition-colors flex items-center justify-center gap-2"
+                className="w-full sm:w-auto min-w-[200px] py-3.5 px-8 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-zinc-950 font-bold text-sm uppercase tracking-wider transition-all duration-200 shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
               >
-                <span>⚔️</span>
-                <span>FIND MATCH NOW</span>
+                <Icons.Swords />
+                <span>Find Match</span>
               </button>
 
               <Link
                 to="/problems"
-                className="w-full sm:w-auto min-w-[180px] py-4 px-8 rounded-xl bg-dark-900 hover:bg-dark-850 border border-zinc-800 text-gray-200 font-bold text-base transition-colors text-center"
+                className="w-full sm:w-auto min-w-[170px] py-3.5 px-6 rounded-xl bg-zinc-900/80 hover:bg-zinc-800/80 border border-white/[0.08] text-zinc-300 hover:text-white font-semibold text-sm transition-all text-center"
               >
                 Browse Problems
               </Link>
@@ -185,104 +205,106 @@ export const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* Real Features Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full">
-        <div className="text-center mb-12">
-          <h2 className="text-xs font-mono font-bold uppercase tracking-widest text-cyan-400 mb-2">ARENA CAPABILITIES</h2>
-          <p className="text-2xl sm:text-3xl font-black text-white">How CodeClash Works</p>
+      {/* Features Bento Grid */}
+      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full relative z-10">
+        <div className="text-center mb-10">
+          <span className="text-xs font-mono font-semibold uppercase tracking-wider text-cyan-400">Platform Features</span>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">Built for Fast-Paced DSA Dueling</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             {
-              icon: '⚔️',
-              title: '1v1 Matchmaking',
-              desc: 'Pairs you with an opponent via real-time WebSockets for head-to-head coding duels.',
+              icon: <Icons.Swords />,
+              title: 'Live 1v1 Matchmaking',
+              desc: 'Seamless WebSocket matchmaking matches you with opponents of comparable ELO rating.',
             },
             {
-              icon: '⚡',
-              title: 'Isolated Execution',
-              desc: 'Submissions are compiled and judged against test cases for C++, Python, Java, and JS.',
+              icon: <Icons.Code />,
+              title: 'Multi-Language Runner',
+              desc: 'Execute and test your code securely against hidden test cases in C++, Python, Java, or JavaScript.',
             },
             {
-              icon: '🏆',
-              title: 'Ranked ELO System',
-              desc: 'Victory earns ELO rating points. Climb up from Challenger to Grandmaster.',
+              icon: <Icons.Trophy />,
+              title: 'Competitive ELO Tier',
+              desc: 'Earn rating points with every victory. Progress from Initiate to Immortal & Overlord.',
             },
             {
-              icon: '📡',
-              title: 'Socket Live Status',
-              desc: 'Instant updates on opponent connection, submission results, and match countdown.',
+              icon: <Icons.Zap />,
+              title: 'Real-Time State Sync',
+              desc: 'Instant opponent status indicators, sub-second test execution, and live countdown timers.',
             },
           ].map((feature, idx) => (
             <div
               key={idx}
-              className="bg-dark-900 p-6 rounded-2xl border border-zinc-800 hover:border-cyan-500/50 transition-colors flex flex-col justify-between"
+              className="rounded-2xl border border-white/[0.07] bg-zinc-900/40 backdrop-blur-md p-6 hover:bg-zinc-900/60 hover:border-cyan-500/30 transition-all flex flex-col justify-between group"
             >
               <div>
-                <div className="text-3xl mb-3 text-cyan-400">{feature.icon}</div>
-                <h3 className="text-lg font-bold text-white mb-2">{feature.title}</h3>
-                <p className="text-xs text-gray-400 leading-relaxed">{feature.desc}</p>
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  {feature.icon}
+                </div>
+                <h3 className="text-base font-bold text-white mb-1.5">{feature.title}</h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">{feature.desc}</p>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Real Leaderboard Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full">
-        <div className="bg-dark-900 p-6 sm:p-8 rounded-2xl border border-zinc-800">
+      {/* Leaderboard Section */}
+      <section className="py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full relative z-10">
+        <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/60 backdrop-blur-xl p-6 sm:p-8 shadow-xl shadow-black/30">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-xs font-mono font-bold uppercase tracking-widest text-cyan-400 mb-1">REAL USER LADDER</h2>
-              <h3 className="text-2xl font-black text-white">Ranked Registered Duelists</h3>
+              <span className="text-xs font-mono font-semibold uppercase tracking-wider text-cyan-400">Competitive Standings</span>
+              <h3 className="text-xl font-bold text-white tracking-tight mt-0.5">Arena Leaderboard</h3>
             </div>
             <Link
               to="/problems"
-              className="px-4 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 border border-zinc-700 text-xs font-bold text-cyan-400 transition-colors"
+              className="px-3.5 py-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/80 border border-white/[0.06] text-xs font-semibold text-zinc-300 hover:text-white transition-colors"
             >
               Practice Problems →
             </Link>
           </div>
 
           {isLoadingLeaderboard ? (
-            <div className="py-12 text-center text-cyan-400 font-mono text-sm flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+            <div className="py-12 text-center text-zinc-400 text-xs flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
               <span>Loading standings...</span>
             </div>
           ) : leaderboard.length === 0 ? (
-            <div className="py-12 text-center text-gray-400 font-mono text-sm">
+            <div className="py-12 text-center text-zinc-500 text-xs">
               No registered duelists yet. Be the first to join matchmaking!
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-800 text-xs font-mono text-gray-400 uppercase">
-                    <th className="pb-3 px-4">Rank</th>
-                    <th className="pb-3 px-4">Duelist</th>
-                    <th className="pb-3 px-4">Title</th>
-                    <th className="pb-3 px-4">ELO Rating</th>
-                    <th className="pb-3 px-4">Peak ELO</th>
-                    <th className="pb-3 px-4">Record (W / L / D)</th>
-                    <th className="pb-3 px-4">Win Rate</th>
+                  <tr className="border-b border-white/[0.06] text-[11px] font-semibold text-zinc-400 uppercase tracking-wider bg-zinc-950/40">
+                    <th className="py-3 px-4">Rank</th>
+                    <th className="py-3 px-4">Duelist</th>
+                    <th className="py-3 px-4">Title</th>
+                    <th className="py-3 px-4">Rating</th>
+                    <th className="py-3 px-4">Peak ELO</th>
+                    <th className="py-3 px-4">Record (W / L)</th>
+                    <th className="py-3 px-4">Win Rate</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800 text-sm font-medium">
+                <tbody className="divide-y divide-white/[0.04] text-xs font-medium">
                   {leaderboard.map((player) => (
                     <tr key={player.id || player.rank} className="hover:bg-zinc-800/40 transition-colors">
                       <td className="py-3.5 px-4 font-mono font-bold text-cyan-400">#{player.rank}</td>
-                      <td className="py-3.5 px-4 font-bold text-white flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-xs text-cyan-400 font-mono uppercase">
+                      <td className="py-3.5 px-4 font-bold text-white flex items-center gap-2.5">
+                        <div className="w-6 h-6 rounded-md bg-gradient-to-br from-cyan-500 to-blue-600 text-zinc-950 font-bold flex items-center justify-center text-[10px] uppercase">
                           {player.name.charAt(0)}
                         </div>
-                        {player.name}
+                        <span>{player.name}</span>
                       </td>
-                      <td className="py-3.5 px-4 font-semibold text-gray-300">{player.title}</td>
-                      <td className="py-3.5 px-4 font-mono font-extrabold text-cyan-400">⚡ {player.rating}</td>
-                      <td className="py-3.5 px-4 font-mono text-gray-300">👑 {player.highestRating}</td>
-                      <td className="py-3.5 px-4 font-mono text-gray-300">
-                        <span className="text-emerald-400">{player.wins}W</span> / <span className="text-rose-400">{player.losses}L</span> / <span className="text-gray-400">{player.draws}D</span>
+                      <td className="py-3.5 px-4 font-semibold text-zinc-300">{player.title}</td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-cyan-400">⚡ {player.rating}</td>
+                      <td className="py-3.5 px-4 font-mono text-zinc-400">{player.highestRating}</td>
+                      <td className="py-3.5 px-4 font-mono text-zinc-300">
+                        <span className="text-emerald-400">{player.wins}W</span> / <span className="text-rose-400">{player.losses}L</span>
                       </td>
                       <td className="py-3.5 px-4 font-mono text-emerald-400">{player.winRate}</td>
                     </tr>
@@ -296,28 +318,28 @@ export const Landing: React.FC = () => {
 
       {/* Auth Modal */}
       {showAuthModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-dark-900 p-6 sm:p-8 rounded-2xl border border-zinc-800 max-w-md w-full text-center space-y-6">
-            <div className="w-12 h-12 mx-auto rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-2xl">
-              ⚔️
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-white/[0.08] p-6 sm:p-8 rounded-2xl max-w-sm w-full text-center space-y-5 shadow-2xl shadow-black/80">
+            <div className="w-12 h-12 mx-auto rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+              <Icons.Swords />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white mb-1">Account Required</h3>
-              <p className="text-xs text-gray-400 leading-relaxed">
-                Sign in or register a CodeClash account to join ranked 1v1 matchmaking.
+              <h3 className="text-lg font-bold text-white mb-1">Account Required</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Sign in or create a CodeClash account to join ranked 1v1 matchmaking.
               </p>
             </div>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5">
               <Link
                 to="/login"
-                className="w-full py-3 rounded-xl bg-cyan-500 text-black font-bold text-sm hover:bg-cyan-400 transition-colors"
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-zinc-950 font-bold text-xs uppercase tracking-wider transition-all"
               >
                 Sign In
               </Link>
               <Link
                 to="/register"
-                className="w-full py-3 rounded-xl bg-dark-800 border border-zinc-700 text-gray-200 font-bold text-sm hover:bg-dark-700 transition-colors"
+                className="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-white/[0.08] text-zinc-200 font-semibold text-xs transition-colors"
               >
                 Create Account
               </Link>
@@ -325,20 +347,21 @@ export const Landing: React.FC = () => {
 
             <button
               onClick={() => setShowAuthModal(false)}
-              className="text-xs text-gray-500 hover:text-gray-300 underline"
+              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
             >
-              Close
+              Cancel
             </button>
           </div>
         </div>
       )}
 
       {/* Footer */}
-      <footer className="mt-auto py-6 border-t border-zinc-800 bg-dark-950 text-center text-xs text-gray-500 font-mono">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>CODECLASH © 2026 • 1v1 DSA Battle Platform</div>
-          <div>
-            <span id="socket-status" className="text-emerald-400">● Socket Connected</span>
+      <footer className="mt-auto py-6 border-t border-white/[0.06] bg-zinc-950/60 text-xs text-zinc-500 font-mono">
+        <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>CodeClash • 1v1 Real-Time DSA Battles</div>
+          <div className="flex items-center gap-1.5 text-emerald-400 text-[11px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Server Online</span>
           </div>
         </div>
       </footer>
@@ -347,5 +370,3 @@ export const Landing: React.FC = () => {
 };
 
 export default Landing;
-
-

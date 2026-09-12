@@ -66,6 +66,7 @@ export const register = async (req: Request, res: Response) => {
       wins: newUser.wins,
       losses: newUser.losses,
       draws: newUser.draws,
+      createdAt: newUser.createdAt,
     };
 
     res.status(201).json({ user: userProfile });
@@ -113,6 +114,7 @@ export const login = async (req: Request, res: Response) => {
       wins: user.wins,
       losses: user.losses,
       draws: user.draws,
+      createdAt: user.createdAt,
     };
 
     res.status(200).json({ user: userProfile });
@@ -162,11 +164,16 @@ export const getLeaderboard = async (req: Request, res: Response) => {
       const total = (user.wins || 0) + (user.losses || 0) + (user.draws || 0);
       const winRate = total > 0 ? `${Math.round(((user.wins || 0) / total) * 100)}%` : '0%';
       
-      let title = '🗡️ Challenger';
-      if (user.rating >= 2200) title = '👑 Grandmaster';
-      else if (user.rating >= 1800) title = '💎 Master';
-      else if (user.rating >= 1500) title = '⚔️ Diamond';
-      else if (user.rating >= 1300) title = '🛡️ Platinum';
+      let title = 'Exile';
+      if (user.rating >= 2000) title = 'Overlord';
+      else if (user.rating >= 1750) title = 'Immortal';
+      else if (user.rating >= 1500) title = 'Ascendant';
+      else if (user.rating >= 1300) title = 'Warlord';
+      else if (user.rating >= 1100) title = 'Centurion';
+      else if (user.rating >= 900) title = 'Gladiator';
+      else if (user.rating >= 700) title = 'Stalker';
+      else if (user.rating >= 500) title = 'Vanguard';
+      else if (user.rating >= 300) title = 'Initiate';
 
       return {
         rank: index + 1,

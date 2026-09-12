@@ -219,57 +219,83 @@ const BattleRoom: React.FC = () => {
 
   if (status === 'WAITING' || status === 'COUNTDOWN') {
     return (
-      <div className="min-h-[calc(100vh-80px)] bg-dark-900 flex flex-col items-center justify-center text-white">
-        <h1 className="text-4xl font-bold mb-4">Battle Found!</h1>
-        <p className="text-xl text-gray-400 mb-8">Preparing arena...</p>
-        {status === 'COUNTDOWN' && countdown !== null && (
-          <div className="text-9xl font-black text-zinc-300 animate-pulse">
-            {countdown}
+      <div className="min-h-[calc(100vh-64px)] bg-[#07080c] flex flex-col items-center justify-center text-white relative ambient-grid">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -z-0" />
+        
+        <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/60 backdrop-blur-xl p-10 text-center shadow-2xl space-y-6 max-w-sm w-full mx-4 relative z-10">
+          <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center mx-auto text-xl">
+            ⚔️
           </div>
-        )}
+          <div className="space-y-1">
+            <h1 className="text-xl font-bold text-white tracking-tight">Duel Initiated</h1>
+            <p className="text-xs text-zinc-400">Locking in problem set and starter templates...</p>
+          </div>
+
+          {status === 'COUNTDOWN' && countdown !== null && (
+            <div className="py-4">
+              <div className="w-24 h-24 rounded-full bg-cyan-500/10 border-2 border-cyan-400/50 flex items-center justify-center mx-auto text-5xl font-extrabold font-mono text-cyan-400 animate-pulse shadow-lg shadow-cyan-500/20">
+                {countdown}
+              </div>
+              <p className="text-[11px] text-zinc-500 font-mono mt-3">Battle starts when countdown reaches 0</p>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
   if ((status === 'FINISHED' || status === 'CANCELLED') && !problem) {
      return (
-       <div className="min-h-[calc(100vh-80px)] bg-dark-900 flex flex-col items-center justify-center text-white">
-         <h1 className="text-3xl font-bold mb-4">Battle Ended</h1>
-         <p className="text-gray-400">{endReason}</p>
-         <button onClick={() => navigate('/find-match')} className="mt-6 bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 px-6 py-2 rounded">Back to Matchmaking</button>
+       <div className="min-h-[calc(100vh-64px)] bg-[#07080c] flex flex-col items-center justify-center text-white p-6 ambient-grid">
+         <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/60 backdrop-blur-xl p-8 text-center max-w-md w-full shadow-2xl space-y-4">
+           <h1 className="text-xl font-bold text-white">Battle Ended</h1>
+           <p className="text-xs text-zinc-400">{endReason || 'This duel has concluded.'}</p>
+           <button
+             onClick={() => navigate('/find-match')}
+             className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-zinc-950 font-bold text-xs uppercase tracking-wider transition-all"
+           >
+             Return to Matchmaking
+           </button>
+         </div>
        </div>
-     )
+     );
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] bg-dark-900 overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-[#07080c] overflow-hidden">
       {/* Battle Header */}
-      <div className="h-16 bg-dark-800 border-b border-dark-700 flex items-center justify-between px-6 shrink-0">
-        <div className="flex items-center space-x-8">
-          <div className="text-xl font-bold">
-            <span className="text-white">{players.me || 'You'}</span> <span className="text-gray-500 text-sm mx-2">VS</span> <span className="text-red-400">{players.opponent || 'Opponent'}</span>
+      <div className="h-14 bg-zinc-950/90 border-b border-white/[0.06] flex items-center justify-between px-4 sm:px-6 shrink-0 backdrop-blur-md">
+        <div className="flex items-center space-x-4 sm:space-x-8">
+          <div className="text-sm font-semibold flex items-center gap-2">
+            <span className="text-white font-bold">{players.me || 'You'}</span>
+            <span className="text-zinc-600 text-xs font-mono font-bold">VS</span>
+            <span className="text-rose-400 font-bold">{players.opponent || 'Opponent'}</span>
           </div>
-          <div className="text-xs text-gray-400 bg-dark-900 px-3 py-1 rounded-full border border-dark-700">
-            Opponent: <span className={opponentStatus === 'Connected' ? 'text-green-400' : 'text-yellow-400'}>{opponentStatus}</span>
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-900/80 px-2.5 py-1 rounded-full border border-white/[0.05]">
+            <span className={`w-1.5 h-1.5 rounded-full ${opponentStatus === 'Connected' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+            <span className="text-[11px] font-mono">{opponentStatus}</span>
           </div>
         </div>
         
-        <div className="flex items-center space-x-6">
-          <div className={`text-2xl font-mono font-bold ${(timeLeft || 0) < 60000 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
-            {formatTime(timeLeft)}
+        <div className="flex items-center space-x-4 sm:space-x-6">
+          <div className={`flex items-center gap-1.5 text-sm sm:text-base font-mono font-bold ${(timeLeft || 0) < 60000 ? 'text-rose-400 animate-pulse' : 'text-white'}`}>
+            <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{formatTime(timeLeft)}</span>
           </div>
           <button 
             onClick={handleLeave}
-            className="text-gray-400 hover:text-red-400 text-sm transition-colors"
+            className="text-zinc-400 hover:text-rose-400 text-xs font-medium transition-colors"
           >
-            Leave Battle
+            Forfeit
           </button>
         </div>
       </div>
 
       <div className="flex flex-col md:flex-row flex-grow overflow-hidden relative">
         {(status === 'FINISHED' || status === 'CANCELLED') && (
-          <div className="absolute inset-0 bg-dark-900/80 z-50 flex items-center justify-center backdrop-blur-sm">
+          <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-md p-4">
              {eloResult ? (
                (() => {
                  const currentUserId = user?.id || (user as any)?._id;
@@ -281,43 +307,59 @@ const BattleRoom: React.FC = () => {
 
                  if (isWinner) {
                    return (
-                     <div className="bg-dark-800 p-8 rounded-xl border border-green-500/30 text-center max-w-md shadow-2xl w-full mx-4">
-                       <h2 className="text-4xl font-extrabold text-green-400 mb-2 flex items-center justify-center gap-2">
-                         🏆 Victory
-                       </h2>
-                       <div className="my-6 p-4 bg-dark-900/60 rounded-lg border border-dark-700">
-                         <div className="text-3xl font-black text-green-400 mb-1">
+                     <div className="rounded-2xl border border-emerald-500/40 bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl shadow-emerald-500/20 space-y-6">
+                       <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-3xl mx-auto">
+                         🏆
+                       </div>
+                       <div className="space-y-1">
+                         <h2 className="text-2xl font-bold text-emerald-400 tracking-tight">Victory!</h2>
+                         <p className="text-xs text-zinc-400 leading-relaxed">{endReason}</p>
+                       </div>
+
+                       <div className="p-4 bg-zinc-950/80 rounded-xl border border-white/[0.06] space-y-1">
+                         <div className="text-2xl font-black font-mono text-emerald-400">
                            +{eloResult.winnerEloChange} ELO
                          </div>
-                         <div className="text-gray-400 text-lg font-mono">
-                           {eloResult.winnerEloBefore} → {eloResult.winnerEloAfter}
+                         <div className="text-zinc-500 text-xs font-mono">
+                           {eloResult.winnerEloBefore} → {eloResult.winnerEloAfter} ELO
                          </div>
                        </div>
-                       <p className="text-gray-300 mb-6">{endReason}</p>
-                       <button onClick={() => navigate('/find-match')} className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-white font-bold py-3 px-6 rounded-lg w-full transition-colors">
-                         Return to Matchmaking
+
+                       <button
+                         onClick={() => navigate('/find-match')}
+                         className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-zinc-950 font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20"
+                       >
+                         Find Next Match →
                        </button>
                      </div>
                    );
                  }
 
                  if (isLoser) {
-                   const title = eloResult.isAbandonment ? 'BATTLE ABANDONED' : 'Defeat';
+                   const title = eloResult.isAbandonment ? 'Battle Abandoned' : 'Defeat';
                    return (
-                     <div className="bg-dark-800 p-8 rounded-xl border border-red-500/30 text-center max-w-md shadow-2xl w-full mx-4">
-                       <h2 className="text-4xl font-extrabold text-red-400 mb-2 flex items-center justify-center gap-2">
-                         {title}
-                       </h2>
-                       <div className="my-6 p-4 bg-dark-900/60 rounded-lg border border-dark-700">
-                         <div className="text-3xl font-black text-red-400 mb-1">
+                     <div className="rounded-2xl border border-rose-500/40 bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl shadow-rose-500/20 space-y-6">
+                       <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center text-3xl mx-auto">
+                         💀
+                       </div>
+                       <div className="space-y-1">
+                         <h2 className="text-2xl font-bold text-rose-400 tracking-tight">{title}</h2>
+                         <p className="text-xs text-zinc-400 leading-relaxed">{endReason}</p>
+                       </div>
+
+                       <div className="p-4 bg-zinc-950/80 rounded-xl border border-white/[0.06] space-y-1">
+                         <div className="text-2xl font-black font-mono text-rose-400">
                            -{eloResult.loserEloChange} ELO
                          </div>
-                         <div className="text-gray-400 text-lg font-mono">
-                           {eloResult.loserEloBefore} → {eloResult.loserEloAfter}
+                         <div className="text-zinc-500 text-xs font-mono">
+                           {eloResult.loserEloBefore} → {eloResult.loserEloAfter} ELO
                          </div>
                        </div>
-                       <p className="text-gray-300 mb-6">{endReason}</p>
-                       <button onClick={() => navigate('/find-match')} className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-white font-bold py-3 px-6 rounded-lg w-full transition-colors">
+
+                       <button
+                         onClick={() => navigate('/find-match')}
+                         className="w-full py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs uppercase tracking-wider transition-all border border-white/[0.08]"
+                       >
                          Return to Matchmaking
                        </button>
                      </div>
@@ -325,20 +367,26 @@ const BattleRoom: React.FC = () => {
                  }
 
                  return (
-                   <div className="bg-dark-800 p-8 rounded-xl border border-dark-700 text-center max-w-md">
-                      <h2 className="text-3xl font-bold text-white mb-2">{status === 'FINISHED' ? 'Battle Ended' : 'Battle Cancelled'}</h2>
-                      <p className="text-gray-300 mb-6">{endReason}</p>
-                      <button onClick={() => navigate('/find-match')} className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-white font-bold py-3 px-6 rounded-lg">
+                   <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl space-y-5">
+                      <h2 className="text-xl font-bold text-white">{status === 'FINISHED' ? 'Battle Ended' : 'Battle Cancelled'}</h2>
+                      <p className="text-xs text-zinc-400">{endReason}</p>
+                      <button
+                        onClick={() => navigate('/find-match')}
+                        className="w-full py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs border border-white/[0.08]"
+                      >
                         Return to Matchmaking
                       </button>
                    </div>
                  );
                })()
              ) : (
-               <div className="bg-dark-800 p-8 rounded-xl border border-dark-700 text-center max-w-md">
-                  <h2 className="text-3xl font-bold text-white mb-2">{status === 'FINISHED' ? 'Battle Ended' : 'Battle Cancelled'}</h2>
-                  <p className="text-gray-300 mb-6">{endReason}</p>
-                  <button onClick={() => navigate('/find-match')} className="bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-white font-bold py-3 px-6 rounded-lg">
+               <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl space-y-5">
+                  <h2 className="text-xl font-bold text-white">{status === 'FINISHED' ? 'Battle Ended' : 'Battle Cancelled'}</h2>
+                  <p className="text-xs text-zinc-400">{endReason}</p>
+                  <button
+                    onClick={() => navigate('/find-match')}
+                    className="w-full py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs border border-white/[0.08]"
+                  >
                     Return to Matchmaking
                   </button>
                </div>

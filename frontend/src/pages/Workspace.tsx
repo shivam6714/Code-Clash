@@ -74,57 +74,63 @@ const Workspace: React.FC = () => {
   };
 
   if (isLoading) {
-    return <div className="min-h-[calc(100vh-80px)] bg-dark-900 flex items-center justify-center text-gray-400">Loading problem...</div>;
+    return <div className="min-h-[calc(100vh-64px)] bg-[#07080c] flex items-center justify-center text-zinc-400 text-xs">Loading problem workspace...</div>;
   }
 
   if (error || !problem) {
     return (
-      <div className="min-h-[calc(100vh-80px)] bg-dark-900 flex items-center justify-center">
-        <div className="text-red-500 bg-red-500/10 p-6 rounded-lg border border-red-500/50">
-          <h2 className="text-2xl font-bold mb-2">Error</h2>
-          <p>{error || 'Problem not found'}</p>
+      <div className="min-h-[calc(100vh-64px)] bg-[#07080c] flex items-center justify-center p-4">
+        <div className="text-rose-400 bg-rose-500/10 p-6 rounded-2xl border border-rose-500/30 max-w-md w-full text-center space-y-2">
+          <h2 className="text-lg font-bold text-white">Unable to Load Challenge</h2>
+          <p className="text-xs text-zinc-400">{error || 'Problem not found'}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-[calc(100vh-80px)] bg-dark-900 overflow-hidden">
+    <div className="flex flex-col md:flex-row h-[calc(100vh-64px)] bg-[#07080c] overflow-hidden">
       {/* Left Pane: Description */}
-      <div className="w-full md:w-1/2 lg:w-2/5 p-6 border-r border-dark-700 overflow-y-auto custom-scrollbar">
-        <h1 className="text-3xl font-bold text-white mb-2">{problem.title}</h1>
-        <div className="flex space-x-4 mb-6 text-sm">
-          <span className={`font-semibold ${problem.difficulty === 'Easy' ? 'text-green-400' : problem.difficulty === 'Medium' ? 'text-yellow-400' : 'text-red-400'}`}>
+      <div className="w-full md:w-1/2 lg:w-2/5 p-6 border-r border-white/[0.06] overflow-y-auto custom-scrollbar bg-zinc-950/40">
+        <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">{problem.title}</h1>
+        <div className="flex items-center space-x-3 mb-6 text-xs">
+          <span className={`px-2.5 py-0.5 rounded-md font-mono font-bold border ${
+            problem.difficulty === 'Easy'
+              ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+              : problem.difficulty === 'Medium'
+              ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+              : 'text-rose-400 bg-rose-500/10 border-rose-500/20'
+          }`}>
             {problem.difficulty}
           </span>
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-1.5">
             {problem.topics.map((t, i) => (
-              <span key={i} className="text-gray-400 bg-dark-800 px-2 py-0.5 rounded border border-dark-600">{t}</span>
+              <span key={i} className="text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded border border-white/[0.05] text-[10px] font-mono">{t}</span>
             ))}
           </div>
         </div>
 
-        <div className="prose prose-invert max-w-none text-gray-300 whitespace-pre-wrap">
+        <div className="prose prose-invert max-w-none text-zinc-300 text-xs leading-relaxed whitespace-pre-wrap">
           {problem.description}
         </div>
 
         {problem.examples && problem.examples.length > 0 && (
           <div className="mt-8">
-            <h2 className="text-xl font-bold text-white mb-4">Examples</h2>
+            <h2 className="text-sm font-bold text-white mb-3 tracking-wide uppercase font-mono">Examples</h2>
             {problem.examples.map((ex, idx) => (
-              <div key={idx} className="mb-6 bg-dark-800 p-4 rounded-lg border border-dark-700 font-mono text-sm">
-                <div className="mb-2"><span className="text-gray-400 font-bold">Input:</span> <span className="text-gray-300">{ex.input}</span></div>
-                <div className="mb-2"><span className="text-gray-400 font-bold">Output:</span> <span className="text-gray-300">{ex.output}</span></div>
-                {ex.explanation && <div><span className="text-gray-400 font-bold">Explanation:</span> <span className="text-gray-300">{ex.explanation}</span></div>}
+              <div key={idx} className="mb-4 bg-zinc-900/60 p-3.5 rounded-xl border border-white/[0.06] font-mono text-xs space-y-1.5">
+                <div><span className="text-zinc-500 font-bold">Input:</span> <span className="text-zinc-200">{ex.input}</span></div>
+                <div><span className="text-zinc-500 font-bold">Output:</span> <span className="text-zinc-200">{ex.output}</span></div>
+                {ex.explanation && <div><span className="text-zinc-500 font-bold">Explanation:</span> <span className="text-zinc-400">{ex.explanation}</span></div>}
               </div>
             ))}
           </div>
         )}
 
         {problem.constraints && problem.constraints.length > 0 && (
-          <div className="mt-8 mb-8">
-            <h2 className="text-xl font-bold text-white mb-4">Constraints</h2>
-            <ul className="list-disc pl-5 space-y-2 text-gray-300 font-mono text-sm bg-dark-800 p-4 rounded-lg border border-dark-700">
+          <div className="mt-6 mb-8">
+            <h2 className="text-sm font-bold text-white mb-3 tracking-wide uppercase font-mono">Constraints</h2>
+            <ul className="list-disc pl-5 space-y-1 text-zinc-400 font-mono text-xs bg-zinc-900/60 p-3.5 rounded-xl border border-white/[0.06]">
               {problem.constraints.map((c, i) => (
                 <li key={i}>{c}</li>
               ))}
@@ -136,11 +142,11 @@ const Workspace: React.FC = () => {
       {/* Right Pane: Editor */}
       <div className="w-full md:w-1/2 lg:w-3/5 flex flex-col h-full bg-[#1e1e1e]">
         {/* Editor Header */}
-        <div className="h-12 bg-dark-800 border-b border-dark-700 flex items-center justify-between px-4">
+        <div className="h-12 bg-zinc-900/90 border-b border-white/[0.06] flex items-center justify-between px-4">
           <select 
             value={language}
             onChange={handleLanguageChange}
-            className="bg-dark-900 border border-dark-600 text-gray-300 text-sm rounded-md focus:ring-zinc-400 focus:border-zinc-400 block p-1.5"
+            className="bg-zinc-950 border border-white/[0.08] text-zinc-300 text-xs rounded-lg focus:outline-none focus:border-cyan-400/50 p-1.5 font-semibold"
           >
             {SUPPORTED_LANGUAGES.map(lang => (
               <option key={lang.id} value={lang.id}>{lang.name}</option>

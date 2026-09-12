@@ -4,6 +4,7 @@ import { BattleState, BattleRoom, BattlePlayer } from './types';
 import { selectBattleProblem } from './problemSelection';
 import { removeUserFromQueue } from './matchmaking';
 import { User } from '../models/User';
+import { Match } from '../models/Match';
 
 // In-memory battle storage
 export const activeBattles = new Map<string, BattleRoom>();
@@ -352,6 +353,40 @@ const handleAbandonment = async (
         isVoluntary,
       };
       battle.eloData = eloData;
+
+      try {
+        await Match.create({
+          battleId: battle.battleId,
+          problem: {
+            problemId: battle.problem?._id || battle.problem?.id,
+            title: battle.problem?.title || 'Coding Duel',
+            difficulty: battle.problem?.difficulty || 'Medium',
+            slug: battle.problem?.slug,
+          },
+          player1: {
+            userId: battle.player1.userId,
+            username: battle.player1.username,
+            ratingBefore: battle.player1.userId === abandonerPlayer.userId ? abandonerEloBefore : opponentEloBefore,
+            ratingAfter: battle.player1.userId === abandonerPlayer.userId ? abandonerEloAfter : opponentEloAfter,
+            ratingChange: battle.player1.userId === abandonerPlayer.userId ? -abandonerEloChange : opponentEloChange,
+            result: battle.player1.userId === abandonerPlayer.userId ? 'LOSS' : 'WIN',
+          },
+          player2: {
+            userId: battle.player2.userId,
+            username: battle.player2.username,
+            ratingBefore: battle.player2.userId === abandonerPlayer.userId ? abandonerEloBefore : opponentEloBefore,
+            ratingAfter: battle.player2.userId === abandonerPlayer.userId ? abandonerEloAfter : opponentEloAfter,
+            ratingChange: battle.player2.userId === abandonerPlayer.userId ? -abandonerEloChange : opponentEloChange,
+            result: battle.player2.userId === abandonerPlayer.userId ? 'LOSS' : 'WIN',
+          },
+          winnerUserId: opponentPlayer.userId,
+          reason: isVoluntary ? 'Abandonment' : 'Disconnection',
+          startedAt: battle.startedAt ? new Date(battle.startedAt) : undefined,
+          endedAt: new Date(),
+        });
+      } catch (matchErr) {
+        console.error('Failed to create abandonment match record:', matchErr);
+      }
     }
   } catch (err) {
     console.error('Failed to settle abandonment ELO:', err);
@@ -436,9 +471,102 @@ const endBattle = async (io: Server, battle: BattleRoom, reason: string, winnerU
           loserEloChange: eloCalc.loserEloChange,
         };
         battle.eloData = eloData;
+
+        try {
+          const isP1Winner = battle.player1.userId === winnerUserId;
+          const p1RatingBefore = isP1Winner ? eloCalc.winnerEloBefore : eloCalc.loserEloBefore;
+          const p1RatingAfter = isP1Winner ? eloCalc.winnerEloAfter : eloCalc.loserEloAfter;
+          const p1RatingChange = isP1Winner ? eloCalc.winnerEloChange : eloCalc.loserEloChange;
+          const p1Result = isP1Winner ? 'WIN' : 'LOSS';
+
+          const p2RatingBefore = !isP1Winner ? eloCalc.winnerEloBefore : eloCalc.loserEloBefore;
+          const p2RatingAfter = !isP1Winner ? eloCalc.winnerEloAfter : eloCalc.loserEloAfter;
+          const p2RatingChange = !isP1Winner ? eloCalc.winnerEloChange : eloCalc.loserEloChange;
+          const p2Result = !isP1Winner ? 'WIN' : 'LOSS';
+
+          await Match.create({
+            battleId: battle.battleId,
+            problem: {
+              problemId: battle.problem?._id || battle.problem?.id,
+              title: battle.problem?.title || 'Coding Duel',
+              difficulty: battle.problem?.difficulty || 'Medium',
+              slug: battle.problem?.slug,
+            },
+            player1: {
+              userId: battle.player1.userId,
+              username: battle.player1.username,
+              ratingBefore: p1RatingBefore,
+              ratingAfter: p1RatingAfter,
+              ratingChange: p1RatingChange,
+              result: p1Result,
+            },
+            player2: {
+              userId: battle.player2.userId,
+              username: battle.player2.username,
+              ratingBefore: p2RatingBefore,
+              ratingAfter: p2RatingAfter,
+              ratingChange: p2RatingChange,
+              result: p2Result,
+            },
+            winnerUserId,
+            reason: reason || 'Solved',
+            startedAt: battle.startedAt ? new Date(battle.startedAt) : undefined,
+            endedAt: new Date(),
+          });
+        } catch (matchErr) {
+          console.error('Failed to create victory match record:', matchErr);
+        }
       }
     } catch (err) {
       console.error('Failed to calculate/save ELO:', err);
+    }
+  } else {
+    // Timeout / Draw
+    try {
+      const [p1User, p2User] = await Promise.all([
+        User.findById(battle.player1.userId),
+        User.findById(battle.player2.userId),
+      ]);
+      const p1Rating = p1User?.rating ?? 300;
+      const p2Rating = p2User?.rating ?? 300;
+
+      if (p1User && p2User) {
+        p1User.draws = (p1User.draws || 0) + 1;
+        p2User.draws = (p2User.draws || 0) + 1;
+        await Promise.all([p1User.save(), p2User.save()]);
+      }
+
+      await Match.create({
+        battleId: battle.battleId,
+        problem: {
+          problemId: battle.problem?._id || battle.problem?.id,
+          title: battle.problem?.title || 'Coding Duel',
+          difficulty: battle.problem?.difficulty || 'Medium',
+          slug: battle.problem?.slug,
+        },
+        player1: {
+          userId: battle.player1.userId,
+          username: battle.player1.username,
+          ratingBefore: p1Rating,
+          ratingAfter: p1Rating,
+          ratingChange: 0,
+          result: 'DRAW',
+        },
+        player2: {
+          userId: battle.player2.userId,
+          username: battle.player2.username,
+          ratingBefore: p2Rating,
+          ratingAfter: p2Rating,
+          ratingChange: 0,
+          result: 'DRAW',
+        },
+        winnerUserId: null,
+        reason: reason || 'Timeout',
+        startedAt: battle.startedAt ? new Date(battle.startedAt) : undefined,
+        endedAt: new Date(),
+      });
+    } catch (matchErr) {
+      console.error('Failed to create draw match record:', matchErr);
     }
   }
 

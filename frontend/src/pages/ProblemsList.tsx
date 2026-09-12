@@ -32,29 +32,44 @@ const ProblemsList: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difficultyFilter, searchQuery]);
 
-  const difficultyBadges: Record<string, { bg: string; text: string; border: string }> = {
-    Easy: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20' },
-    Medium: { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/20' },
-    Hard: { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/20' },
+  const getDifficultyBadge = (diff: string) => {
+    switch (diff?.toLowerCase()) {
+      case 'easy':
+        return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+      case 'hard':
+        return 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+      case 'medium':
+      default:
+        return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+    }
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-dark-950 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-[calc(100vh-64px)] bg-[#07080c] relative py-10 px-4 sm:px-6 lg:px-8 ambient-grid">
+      {/* Ambient background glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-80 bg-gradient-to-b from-cyan-500/10 via-transparent to-transparent pointer-events-none blur-3xl -z-0" />
+
+      <div className="max-w-6xl mx-auto space-y-6 relative z-10">
         
         {/* Top Header & Filter Bar */}
-        <div className="bg-dark-900 p-6 rounded-2xl border border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/60 backdrop-blur-xl p-6 shadow-xl shadow-black/30 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <span className="text-xs font-mono font-bold uppercase tracking-widest text-cyan-400">DSA PROBLEM REPOSITORY</span>
-            <h1 className="text-2xl font-black text-white">Practice Arena Problems</h1>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+              <span className="text-xs font-mono font-semibold uppercase tracking-wider text-cyan-400">DSA Problem Repository</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Practice Arena Problems</h1>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <div className="relative w-full sm:w-72">
+              <svg className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
               <input
                 type="text"
-                placeholder="Search by title or topic..."
-                className="w-full bg-dark-950 border border-zinc-800 text-white placeholder-gray-500 text-xs font-mono rounded-xl p-3 pr-8 focus:outline-none focus:border-cyan-400 transition-colors"
+                placeholder="Search problem title or tag..."
+                className="w-full bg-zinc-950/80 border border-white/[0.08] text-white placeholder-zinc-500 text-xs font-medium rounded-xl pl-9.5 pr-8 py-2.5 focus:outline-none focus:border-cyan-400/50 transition-colors"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -62,7 +77,7 @@ const ProblemsList: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs"
                 >
                   ✕
                 </button>
@@ -70,7 +85,7 @@ const ProblemsList: React.FC = () => {
             </div>
 
             <select
-              className="w-full sm:w-auto bg-dark-950 border border-zinc-800 text-gray-200 text-xs font-semibold rounded-xl p-3 focus:outline-none focus:border-cyan-400"
+              className="w-full sm:w-auto bg-zinc-950/80 border border-white/[0.08] text-zinc-300 text-xs font-semibold rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-cyan-400/50 cursor-pointer"
               value={difficultyFilter}
               onChange={(e) => setDifficultyFilter(e.target.value)}
             >
@@ -83,71 +98,68 @@ const ProblemsList: React.FC = () => {
         </div>
 
         {error && (
-          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-4 rounded-xl text-center font-semibold text-sm">
+          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-4 rounded-xl text-center font-medium text-xs">
             {error}
           </div>
         )}
 
         {isLoading ? (
-          <div className="bg-dark-900 p-16 rounded-2xl border border-zinc-800 text-center text-cyan-400 font-mono text-sm flex items-center justify-center gap-3">
-            <div className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+          <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/60 p-16 text-center text-zinc-400 text-xs flex flex-col items-center justify-center gap-3">
+            <div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
             <span>Loading problem set...</span>
           </div>
         ) : problems.length === 0 ? (
-          <div className="bg-dark-900 p-16 rounded-2xl border border-zinc-800 text-center text-gray-400 font-mono text-sm">
-            No problems found matching your search filter.
+          <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/60 p-16 text-center text-zinc-500 text-xs">
+            No problems found matching your current filter.
           </div>
         ) : (
-          <div className="bg-dark-900 rounded-2xl border border-zinc-800 overflow-hidden">
+          <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/60 backdrop-blur-xl overflow-hidden shadow-xl shadow-black/30">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-800 text-xs font-mono uppercase text-gray-400">
-                    <th scope="col" className="px-6 py-4">Title</th>
-                    <th scope="col" className="px-6 py-4">Difficulty</th>
-                    <th scope="col" className="px-6 py-4">Topic Tags</th>
-                    <th scope="col" className="px-6 py-4 text-right">Action</th>
+                  <tr className="border-b border-white/[0.06] text-[11px] font-semibold uppercase tracking-wider text-zinc-400 bg-zinc-950/40">
+                    <th scope="col" className="px-6 py-3.5">Title</th>
+                    <th scope="col" className="px-6 py-3.5">Difficulty</th>
+                    <th scope="col" className="px-6 py-3.5">Topic Tags</th>
+                    <th scope="col" className="px-6 py-3.5 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800 text-sm font-medium">
-                  {problems.map((problem) => {
-                    const badge = difficultyBadges[problem.difficulty] || { bg: 'bg-zinc-800', text: 'text-gray-300', border: 'border-zinc-700' };
-                    return (
-                      <tr key={problem._id} className="hover:bg-zinc-800/40 transition-colors group">
-                        <td className="px-6 py-5">
-                          <Link 
-                            to={`/problems/${problem.slug}`} 
-                            className="text-white font-bold text-base group-hover:text-cyan-400 transition-colors flex items-center gap-2"
-                          >
-                            <span>{problem.title}</span>
-                          </Link>
-                        </td>
-                        <td className="px-6 py-5">
-                          <span className={`px-3 py-1 rounded-full text-xs font-mono font-bold border ${badge.bg} ${badge.text} ${badge.border}`}>
-                            {problem.difficulty}
-                          </span>
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className="flex flex-wrap gap-1.5">
-                            {problem.topics.map((topic, index) => (
-                              <span key={index} className="bg-dark-950 text-gray-400 text-[11px] font-mono px-2.5 py-0.5 rounded-md border border-zinc-800">
-                                {topic}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-right">
-                          <Link
-                            to={`/problems/${problem.slug}`}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-dark-850 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold text-gray-200 hover:text-cyan-400 transition-colors"
-                          >
-                            <span>Solve Solo</span>
-                            <span>→</span>
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                <tbody className="divide-y divide-white/[0.04] text-xs font-medium">
+                  {problems.map((problem) => (
+                    <tr key={problem._id} className="hover:bg-zinc-800/40 transition-colors group">
+                      <td className="px-6 py-4">
+                        <Link 
+                          to={`/problems/${problem.slug}`} 
+                          className="text-white font-semibold text-sm group-hover:text-cyan-400 transition-colors"
+                        >
+                          {problem.title}
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold border ${getDifficultyBadge(problem.difficulty)}`}>
+                          {problem.difficulty}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-1.5">
+                          {problem.topics.map((topic, index) => (
+                            <span key={index} className="bg-zinc-950 text-zinc-400 text-[10px] font-mono px-2 py-0.5 rounded border border-white/[0.05]">
+                              {topic}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Link
+                          to={`/problems/${problem.slug}`}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/80 border border-white/[0.06] text-xs font-semibold text-zinc-300 hover:text-white transition-colors"
+                        >
+                          <span>Solve</span>
+                          <span>→</span>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -160,5 +172,3 @@ const ProblemsList: React.FC = () => {
 };
 
 export default ProblemsList;
-
-
