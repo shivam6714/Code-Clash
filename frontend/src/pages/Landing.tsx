@@ -81,11 +81,19 @@ export const Landing: React.FC = () => {
       setStatusMessage('Ready to enter ranked matchmaking');
     };
 
+    const handleConnectError = (err: any) => {
+      console.error('Socket connect_error:', err);
+      setError(err?.message || 'Failed to connect to battle server. Please sign in or register.');
+      setIsSearching(false);
+      setStatusMessage('Ready to enter ranked matchmaking');
+    };
+
     socket.on('matchmaking:queued', handleQueued);
     socket.on('matchmaking:searching', handleSearching);
     socket.on('matchmaking:found', handleFound);
     socket.on('battle:created', handleCreated);
     socket.on('matchmaking:idle', handleIdle);
+    socket.on('connect_error', handleConnectError);
     socket.on('error', handleError);
 
     return () => {
@@ -94,6 +102,7 @@ export const Landing: React.FC = () => {
       socket.off('matchmaking:found', handleFound);
       socket.off('battle:created', handleCreated);
       socket.off('matchmaking:idle', handleIdle);
+      socket.off('connect_error', handleConnectError);
       socket.off('error', handleError);
     };
   }, [navigate]);

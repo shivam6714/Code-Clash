@@ -1,12 +1,12 @@
 import { DockerSandbox } from './sandbox';
 import { runJudge, runJudgeVisible } from './judge';
 import { getLanguageAdapter } from './languages';
-import { runPistonSubmission, runPistonVisibleRun } from './piston';
-import { SupportedLanguage, JudgeResult, RunResult, SubmissionStatus, TestCase } from './types';
+import { runCloudSubmission, runCloudVisibleRun } from './cloudRunner';
+import { SupportedLanguage, JudgeResult, RunResult, TestCase } from './types';
 
-const getEngine = (): 'piston' | 'docker' => {
-  const engine = (process.env.EXECUTION_ENGINE || 'piston').toLowerCase();
-  return engine === 'docker' ? 'docker' : 'piston';
+const getEngine = (): 'cloud' | 'docker' => {
+  const engine = (process.env.EXECUTION_ENGINE || 'cloud').toLowerCase();
+  return engine === 'docker' ? 'docker' : 'cloud';
 };
 
 export const executeSubmission = async (
@@ -18,8 +18,8 @@ export const executeSubmission = async (
 ): Promise<JudgeResult> => {
   const engine = getEngine();
 
-  if (engine === 'piston') {
-    return runPistonSubmission(sourceCode, language, testCases, timeLimit);
+  if (engine === 'cloud') {
+    return runCloudSubmission(sourceCode, language, testCases, timeLimit);
   }
 
   let sandbox: DockerSandbox | null = null;
@@ -41,9 +41,8 @@ export const executeSubmission = async (
     return result;
 
   } catch (error: any) {
-    console.error('Docker Execution failed, falling back to Piston API:', error.message || error);
-    // Graceful fallback to Piston if Docker is unavailable
-    return runPistonSubmission(sourceCode, language, testCases, timeLimit);
+    console.error('Docker Execution failed, falling back to Cloud API:', error.message || error);
+    return runCloudSubmission(sourceCode, language, testCases, timeLimit);
   } finally {
     if (sandbox) {
       await sandbox.cleanup();
@@ -60,8 +59,8 @@ export const executeRun = async (
 ): Promise<RunResult> => {
   const engine = getEngine();
 
-  if (engine === 'piston') {
-    return runPistonVisibleRun(sourceCode, language, visibleTestCases, timeLimit);
+  if (engine === 'cloud') {
+    return runCloudVisibleRun(sourceCode, language, visibleTestCases, timeLimit);
   }
 
   let sandbox: DockerSandbox | null = null;
@@ -83,12 +82,12 @@ export const executeRun = async (
     return result;
 
   } catch (error: any) {
-    console.error('Docker Execution failed (Run), falling back to Piston API:', error.message || error);
-    // Graceful fallback to Piston if Docker is unavailable
-    return runPistonVisibleRun(sourceCode, language, visibleTestCases, timeLimit);
+    console.error('Docker Execution failed (Run), falling back to Cloud API:', error.message || error);
+    return runCloudVisibleRun(sourceCode, language, visibleTestCases, timeLimit);
   } finally {
     if (sandbox) {
       await sandbox.cleanup();
     }
   }
 };
+

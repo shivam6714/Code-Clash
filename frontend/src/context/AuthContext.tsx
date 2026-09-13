@@ -46,10 +46,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     fetchUser();
   }, []);
 
-  const login = async (credentials: any) => {
+  const login = async (emailOrCredentials: any, maybePassword?: string) => {
+    const body = typeof emailOrCredentials === 'string'
+      ? { email: emailOrCredentials, password: maybePassword }
+      : emailOrCredentials;
     const data = await apiFetch('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify(credentials),
+      body: JSON.stringify(body),
     });
     setUser(data.user);
   };

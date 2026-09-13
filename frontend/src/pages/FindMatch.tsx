@@ -38,7 +38,14 @@ const FindMatch: React.FC = () => {
       setStatusMessage('Ready to enter ranked matchmaking');
     });
 
-    socket.on('error', (err) => {
+    socket.on('connect_error', (err: any) => {
+      console.error('Socket connection error:', err);
+      setError(err.message || 'Connection failed. Please sign in or register on the new cluster.');
+      setIsSearching(false);
+      setStatusMessage('Ready to enter ranked matchmaking');
+    });
+
+    socket.on('error', (err: any) => {
       setError(err.message || 'An error occurred during matchmaking');
       setIsSearching(false);
       setStatusMessage('Ready to enter ranked matchmaking');
@@ -50,6 +57,7 @@ const FindMatch: React.FC = () => {
       socket.off('matchmaking:found');
       socket.off('battle:created');
       socket.off('matchmaking:idle');
+      socket.off('connect_error');
       socket.off('error');
     };
   }, [navigate]);
