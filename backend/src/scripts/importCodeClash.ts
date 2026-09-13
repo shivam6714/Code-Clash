@@ -8,11 +8,14 @@ import { CodeClashProblemDefinition } from '../problems/datasets/types';
 
 const args = process.argv.slice(2);
 let batchName = 'batch1';
+let skipSmoke = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--batch' && args[i + 1]) {
     batchName = args[i + 1];
     i++;
+  } else if (args[i] === '--no-docker' || args[i] === '--skip-smoke') {
+    skipSmoke = true;
   }
 }
 
@@ -21,6 +24,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const runImporter = async () => {
   console.log('--- CodeClash Original Problem Importer ---');
   console.log(`Target Batch: ${batchName}`);
+  console.log(`Skip Docker Smoke Test: ${skipSmoke}`);
   console.log('-------------------------------------------\n');
 
   let problemsToImport: CodeClashProblemDefinition[] = [];
@@ -81,38 +85,42 @@ const runImporter = async () => {
            continue;
         }
 
-        console.log(`- Running Docker smoke test using C++ reference solution...`);
-        const result = await executeSubmission(
-          p.referenceSolution.code,
-          'cpp',
-          p.testCases,
-          p.timeLimit || 2000,
-          p.memoryLimit || 256
-        );
+        let isPublished = true;
 
-        let isPublished = false;
-
-        if (result.status === 'ACCEPTED') {
-          console.log(`- Smoke test PASSED.`);
-          isPublished = true;
-        } else {
-          console.log(`- Smoke test FAILED: ${result.status}`);
-          // Run detailed visible test run to inspect outputs
-          const runDetails = await executeRun(
+        if (!skipSmoke) {
+          console.log(`- Running Docker smoke test using C++ reference solution...`);
+          const result = await executeSubmission(
             p.referenceSolution.code,
             'cpp',
             p.testCases,
             p.timeLimit || 2000,
             p.memoryLimit || 256
           );
-          console.log(`- Failed Test Cases breakdown:`);
-          runDetails.testResults.forEach((tr: any, idx: number) => {
-            if (!tr.passed) {
-              console.log(`  [Test ${idx + 1}] Input: ${JSON.stringify(tr.input)} | Expected: ${JSON.stringify(tr.expectedOutput)} | Actual: ${JSON.stringify(tr.actualOutput)}`);
-            }
-          });
-          stats.rejectedSmokeTestFailed++;
-          continue; // Do not save at all if reference fails
+
+          if (result.status === 'ACCEPTED') {
+            console.log(`- Smoke test PASSED.`);
+            isPublished = true;
+          } else {
+            console.log(`- Smoke test FAILED: ${result.status}`);
+            // Run detailed visible test run to inspect outputs
+            const runDetails = await executeRun(
+              p.referenceSolution.code,
+              'cpp',
+              p.testCases,
+              p.timeLimit || 2000,
+              p.memoryLimit || 256
+            );
+            console.log(`- Failed Test Cases breakdown:`);
+            runDetails.testResults.forEach((tr: any, idx: number) => {
+              if (!tr.passed) {
+                console.log(`  [Test ${idx + 1}] Input: ${JSON.stringify(tr.input)} | Expected: ${JSON.stringify(tr.expectedOutput)} | Actual: ${JSON.stringify(tr.actualOutput)}`);
+              }
+            });
+            stats.rejectedSmokeTestFailed++;
+            continue; // Do not save at all if reference fails
+          }
+        } else {
+          console.log(`- Pre-validated dataset: skipping local Docker smoke test.`);
         }
 
         const problemData = {

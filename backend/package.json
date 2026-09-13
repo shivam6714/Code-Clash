@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "seed:problems": "ts-node src/scripts/seedProblems.ts",
     "import:problems": "ts-node src/scripts/importProblems.ts",
-    "import:codeclash": "ts-node src/scripts/importCodeClash.ts"
+    "import:codeclash": "ts-node src/scripts/importCodeClash.ts --batch all --no-docker",
+    "import:codeclash:docker": "ts-node src/scripts/importCodeClash.ts --batch all"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

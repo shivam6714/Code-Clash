@@ -1,7 +1,13 @@
 import { DockerSandbox } from './sandbox';
 import { runJudge, runJudgeVisible } from './judge';
 import { getLanguageAdapter } from './languages';
+import { runPistonSubmission, runPistonVisibleRun } from './piston';
 import { SupportedLanguage, JudgeResult, RunResult, SubmissionStatus, TestCase } from './types';
+
+const getEngine = (): 'piston' | 'docker' => {
+  const engine = (process.env.EXECUTION_ENGINE || 'piston').toLowerCase();
+  return engine === 'docker' ? 'docker' : 'piston';
+};
 
 export const executeSubmission = async (
   sourceCode: string,
@@ -10,6 +16,12 @@ export const executeSubmission = async (
   timeLimit: number = 2000,
   memoryLimit: number = 256
 ): Promise<JudgeResult> => {
+  const engine = getEngine();
+
+  if (engine === 'piston') {
+    return runPistonSubmission(sourceCode, language, testCases, timeLimit);
+  }
+
   let sandbox: DockerSandbox | null = null;
 
   try {
@@ -29,13 +41,9 @@ export const executeSubmission = async (
     return result;
 
   } catch (error: any) {
-    console.error('Execution System Error:', error);
-    return {
-      status: SubmissionStatus.SYSTEM_ERROR,
-      passedTests: 0,
-      totalTests: testCases.length,
-      errorMessage: 'System error during execution'
-    };
+    console.error('Docker Execution failed, falling back to Piston API:', error.message || error);
+    // Graceful fallback to Piston if Docker is unavailable
+    return runPistonSubmission(sourceCode, language, testCases, timeLimit);
   } finally {
     if (sandbox) {
       await sandbox.cleanup();
@@ -50,6 +58,12 @@ export const executeRun = async (
   timeLimit: number = 2000,
   memoryLimit: number = 256
 ): Promise<RunResult> => {
+  const engine = getEngine();
+
+  if (engine === 'piston') {
+    return runPistonVisibleRun(sourceCode, language, visibleTestCases, timeLimit);
+  }
+
   let sandbox: DockerSandbox | null = null;
 
   try {
@@ -69,14 +83,9 @@ export const executeRun = async (
     return result;
 
   } catch (error: any) {
-    console.error('Execution System Error (Run):', error);
-    return {
-      status: SubmissionStatus.SYSTEM_ERROR,
-      passedTests: 0,
-      totalTests: visibleTestCases.length,
-      testResults: [],
-      errorMessage: 'System error during execution'
-    };
+    console.error('Docker Execution failed (Run), falling back to Piston API:', error.message || error);
+    // Graceful fallback to Piston if Docker is unavailable
+    return runPistonVisibleRun(sourceCode, language, visibleTestCases, timeLimit);
   } finally {
     if (sandbox) {
       await sandbox.cleanup();
