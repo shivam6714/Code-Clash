@@ -1,27 +1,28 @@
 import React, { useState } from 'react';
-import { useNavigate, Navigate, Link } from 'react-router-dom';
+import { useNavigate, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { CodeClashLogo } from '../components/Logo';
 
-const Login: React.FC = () => {
+export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
 
-  if (isAuthenticated) {
-    return <Navigate to="/profile" replace />;
-  }
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const from = (location.state as any)?.from?.pathname || '/find-match';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
-    
+
     try {
-      await login({ email, password });
-      navigate('/profile');
+      await login(email, password);
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {
@@ -34,12 +35,10 @@ const Login: React.FC = () => {
       {/* Top Ambient Glow */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -z-0" />
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-2 relative z-10">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-cyan-600 text-zinc-950 font-bold flex items-center justify-center text-lg mx-auto shadow-md shadow-cyan-500/20">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-        </div>
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-3 relative z-10">
+        <Link to="/" className="inline-flex justify-center">
+          <CodeClashLogo size="lg" showText={false} />
+        </Link>
         <h2 className="text-2xl font-bold text-white tracking-tight">
           Welcome back
         </h2>

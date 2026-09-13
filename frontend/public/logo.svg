@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="ccCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <linearGradient id="ccSlash" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+  </defs>
+
+  <!-- Left Code Bracket '<' -->
+  <path
+    d="M11 5L3 16L11 27"
+    fill="none"
+    stroke="url(#ccCyan)"
+    stroke-width="4.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Right Code Bracket '>' -->
+  <path
+    d="M21 5L29 16L21 27"
+    fill="none"
+    stroke="url(#ccCyan)"
+    stroke-width="4.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Dynamic Center Clash Slash Blade '/' -->
+  <path
+    d="M19.5 3.5L12.5 28.5"
+    fill="none"
+    stroke="url(#ccSlash)"
+    stroke-width="4.2"
+    stroke-linecap="round"
+  />
+
+  <!-- Central Clash Star Core -->
+  <polygon points="16,11 18.5,16 21,16 18.5,17.5 16,21 13.5,17.5 11,16 13.5,16" fill="#ffffff" />
+</svg>

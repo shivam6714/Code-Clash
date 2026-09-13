@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { socket } from '../socket';
 import { getRankData } from '../utils/ranks';
+import { CodeClashLogo } from './Logo';
 
 export const Navbar: React.FC = () => {
   const { isAuthenticated, user, logout, isLoading } = useAuth();
@@ -78,20 +79,8 @@ export const Navbar: React.FC = () => {
           
           {/* Logo Section */}
           <div className="flex items-center gap-6">
-            <Link to="/" className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-zinc-950 font-bold shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-base font-bold tracking-tight text-white group-hover:text-cyan-400 transition-colors">
-                  CODE<span className="text-cyan-400">CLASH</span>
-                </span>
-                <span className="text-[9px] tracking-widest text-zinc-500 font-mono -mt-1 font-semibold uppercase">
-                  1v1 DSA Arena
-                </span>
-              </div>
+            <Link to="/" className="flex items-center">
+              <CodeClashLogo size="md" />
             </Link>
 
             {/* Active Rejoin Banner */}
