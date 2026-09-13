@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { socket } from '../socket';
 import { fetchLeaderboard, LeaderboardUser } from '../api/auth';
+import { RankBadge, getRankData } from '../utils/ranks';
 
 const Icons = {
   Swords: () => (
@@ -43,8 +44,8 @@ export const Landing: React.FC = () => {
 
   useEffect(() => {
     fetchLeaderboard()
-      .then((data) => setLeaderboard(data))
-      .catch((err) => console.error('Failed to fetch real leaderboard', err))
+      .then((data: LeaderboardUser[]) => setLeaderboard(data))
+      .catch((err: unknown) => console.error('Failed to fetch real leaderboard', err))
       .finally(() => setIsLoadingLeaderboard(false));
   }, []);
 
@@ -146,7 +147,7 @@ export const Landing: React.FC = () => {
           <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
           <span>
             {isAuthenticated && user 
-              ? `Logged in as ${user.username} (⚡ ${user.rating || 300} ELO)` 
+              ? `${getRankData(user.rating || 300).emoji} Logged in as ${user.username} (${user.rating || 300} ELO • ${getRankData(user.rating || 300).title})` 
               : 'Competitive 1v1 Data Structures & Algorithms Battles'}
           </span>
         </div>
@@ -300,7 +301,9 @@ export const Landing: React.FC = () => {
                         </div>
                         <span>{player.name}</span>
                       </td>
-                      <td className="py-3.5 px-4 font-semibold text-zinc-300">{player.title}</td>
+                      <td className="py-3.5 px-4 font-semibold text-zinc-300">
+                        <RankBadge title={player.title} rating={player.rating} size="xs" />
+                      </td>
                       <td className="py-3.5 px-4 font-mono font-bold text-cyan-400">⚡ {player.rating}</td>
                       <td className="py-3.5 px-4 font-mono text-zinc-400">{player.highestRating}</td>
                       <td className="py-3.5 px-4 font-mono text-zinc-300">

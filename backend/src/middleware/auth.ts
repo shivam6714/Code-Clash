@@ -33,3 +33,20 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     return res.status(401).json({ message: 'Invalid or expired token' });
   }
 };
+
+export const authenticateOptional = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const token = req.cookies.token;
+    if (token) {
+      const decoded = jwt.verify(token, config.JWT_SECRET) as { id: string };
+      const user = await User.findById(decoded.id).select('-passwordHash');
+      if (user) {
+        req.user = user;
+      }
+    }
+  } catch (error) {
+    // Ignore invalid/expired token for optional authentication
+  }
+  next();
+};
+

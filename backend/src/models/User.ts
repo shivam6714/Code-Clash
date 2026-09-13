@@ -10,6 +10,7 @@ export interface IUser extends Document {
   wins: number;
   losses: number;
   draws: number;
+  solvedProblems: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -62,6 +63,10 @@ const userSchema = new Schema<IUser>(
     draws: {
       type: Number,
       default: 0,
+    },
+    solvedProblems: {
+      type: [String],
+      default: [],
     },
   },
   {

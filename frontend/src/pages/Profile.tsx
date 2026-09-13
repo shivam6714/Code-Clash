@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { socket } from '../socket';
 import { fetchMatchHistory, MatchHistoryItem } from '../api/matches';
+import { getRankData, RankBadge, ALL_RANKS } from '../utils/ranks';
 
 // Clean SVG Icons
 const Icons = {
@@ -89,120 +90,6 @@ const Profile: React.FC = () => {
 
   const totalMatches = (user.wins || 0) + (user.losses || 0) + (user.draws || 0);
   const winRate = totalMatches > 0 ? Math.round(((user.wins || 0) / totalMatches) * 100) : 0;
-
-  // Rank and Progress calculation for 10-tier ranking system
-  const getRankData = (rating: number) => {
-    if (rating >= 2000) {
-      return {
-        title: 'Overlord',
-        color: 'text-rose-400 bg-rose-500/10 border-rose-500/30',
-        glow: 'from-rose-500/20 via-transparent to-transparent',
-        nextTier: 'Max Rank',
-        progress: 100,
-        pointsToNext: 0,
-        badgeBg: 'bg-rose-500/20 text-rose-300',
-      };
-    }
-    if (rating >= 1750) {
-      return {
-        title: 'Immortal',
-        color: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-        glow: 'from-amber-500/20 via-transparent to-transparent',
-        nextTier: 'Overlord (2000)',
-        progress: Math.min(100, Math.round(((rating - 1750) / 250) * 100)),
-        pointsToNext: 2000 - rating,
-        badgeBg: 'bg-amber-500/20 text-amber-300',
-      };
-    }
-    if (rating >= 1500) {
-      return {
-        title: 'Ascendant',
-        color: 'text-purple-400 bg-purple-500/10 border-purple-500/30',
-        glow: 'from-purple-500/20 via-transparent to-transparent',
-        nextTier: 'Immortal (1750)',
-        progress: Math.min(100, Math.round(((rating - 1500) / 250) * 100)),
-        pointsToNext: 1750 - rating,
-        badgeBg: 'bg-purple-500/20 text-purple-300',
-      };
-    }
-    if (rating >= 1300) {
-      return {
-        title: 'Warlord',
-        color: 'text-orange-400 bg-orange-500/10 border-orange-500/30',
-        glow: 'from-orange-500/20 via-transparent to-transparent',
-        nextTier: 'Ascendant (1500)',
-        progress: Math.min(100, Math.round(((rating - 1300) / 200) * 100)),
-        pointsToNext: 1500 - rating,
-        badgeBg: 'bg-orange-500/20 text-orange-300',
-      };
-    }
-    if (rating >= 1100) {
-      return {
-        title: 'Centurion',
-        color: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
-        glow: 'from-blue-500/20 via-transparent to-transparent',
-        nextTier: 'Warlord (1300)',
-        progress: Math.min(100, Math.round(((rating - 1100) / 200) * 100)),
-        pointsToNext: 1300 - rating,
-        badgeBg: 'bg-blue-500/20 text-blue-300',
-      };
-    }
-    if (rating >= 900) {
-      return {
-        title: 'Gladiator',
-        color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
-        glow: 'from-cyan-500/20 via-transparent to-transparent',
-        nextTier: 'Centurion (1100)',
-        progress: Math.min(100, Math.round(((rating - 900) / 200) * 100)),
-        pointsToNext: 1100 - rating,
-        badgeBg: 'bg-cyan-500/20 text-cyan-300',
-      };
-    }
-    if (rating >= 700) {
-      return {
-        title: 'Stalker',
-        color: 'text-teal-400 bg-teal-500/10 border-teal-500/30',
-        glow: 'from-teal-500/20 via-transparent to-transparent',
-        nextTier: 'Gladiator (900)',
-        progress: Math.min(100, Math.round(((rating - 700) / 200) * 100)),
-        pointsToNext: 900 - rating,
-        badgeBg: 'bg-teal-500/20 text-teal-300',
-      };
-    }
-    if (rating >= 500) {
-      return {
-        title: 'Vanguard',
-        color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
-        glow: 'from-emerald-500/20 via-transparent to-transparent',
-        nextTier: 'Stalker (700)',
-        progress: Math.min(100, Math.round(((rating - 500) / 200) * 100)),
-        pointsToNext: 700 - rating,
-        badgeBg: 'bg-emerald-500/20 text-emerald-300',
-      };
-    }
-    if (rating >= 300) {
-      return {
-        title: 'Initiate',
-        color: 'text-zinc-300 bg-zinc-500/10 border-zinc-500/30',
-        glow: 'from-zinc-500/15 via-transparent to-transparent',
-        nextTier: 'Vanguard (500)',
-        progress: Math.min(100, Math.round(((rating - 300) / 200) * 100)),
-        pointsToNext: 500 - rating,
-        badgeBg: 'bg-zinc-800 text-zinc-300',
-      };
-    }
-    // < 300 (Exile)
-    return {
-      title: 'Exile',
-      color: 'text-zinc-500 bg-zinc-800/40 border-zinc-700/40',
-      glow: 'from-zinc-800/10 via-transparent to-transparent',
-      nextTier: 'Initiate (300)',
-      progress: Math.min(100, Math.round((Math.max(0, rating) / 300) * 100)),
-      pointsToNext: Math.max(0, 300 - rating),
-      badgeBg: 'bg-zinc-900 text-zinc-500',
-    };
-  };
-
   const rank = getRankData(user.rating || 300);
 
   const getDifficultyBadge = (diff?: string) => {
@@ -312,10 +199,7 @@ const Profile: React.FC = () => {
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
                   <h1 className="text-2xl font-bold text-white tracking-tight">{user.username}</h1>
-                  <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${rank.color} flex items-center gap-1.5`}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                    {rank.title}
-                  </span>
+                  <RankBadge rating={user.rating || 300} size="md" />
                 </div>
 
                 <p className="text-xs text-zinc-400 font-mono">{user.email}</p>
@@ -566,7 +450,7 @@ const Profile: React.FC = () => {
                         <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
                           <span>vs <strong className="text-zinc-200 font-semibold">{m.opponent.username}</strong></span>
                           <span className="text-zinc-600">•</span>
-                          <span className="font-mono text-zinc-500">{m.opponent.rating} ELO</span>
+                          <RankBadge rating={m.opponent.rating} size="xs" showRating />
                           {m.durationSeconds && (
                             <>
                               <span className="text-zinc-600">•</span>
@@ -612,6 +496,69 @@ const Profile: React.FC = () => {
             </div>
           )}
 
+        </div>
+
+        {/* 10-Tier Rank Ladder & Badge System */}
+        <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/60 backdrop-blur-xl p-6 sm:p-8 shadow-xl shadow-black/30 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/[0.06] pb-5">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                <span className="text-xs font-mono font-semibold uppercase tracking-wider text-cyan-400">Competitive Hierarchy</span>
+              </div>
+              <h2 className="text-lg font-bold text-white tracking-tight">Arena Rank Divisions & Badges</h2>
+            </div>
+            <div className="text-xs text-zinc-400 font-medium">
+              Your Current Division: <strong className="text-cyan-400">{rank.emoji} {rank.title}</strong>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            {ALL_RANKS.map((tier) => {
+              const isCurrentRank = rank.title === tier.title;
+              const isSurpassed = (user.rating || 300) >= (tier.maxRating ? tier.maxRating + 1 : tier.minRating);
+
+              return (
+                <div
+                  key={tier.title}
+                  className={`rounded-xl p-4 border transition-all relative overflow-hidden flex flex-col justify-between gap-3 ${
+                    isCurrentRank
+                      ? 'bg-zinc-800/90 border-cyan-400/60 shadow-lg shadow-cyan-500/10 ring-1 ring-cyan-400/30'
+                      : isSurpassed
+                      ? 'bg-zinc-900/40 border-white/[0.06] opacity-80 hover:opacity-100'
+                      : 'bg-zinc-950/40 border-white/[0.04] opacity-50 hover:opacity-80'
+                  }`}
+                >
+                  {isCurrentRank && (
+                    <div className="absolute top-2 right-2 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-cyan-400 bg-cyan-500/20 px-1.5 py-0.5 rounded border border-cyan-400/40">
+                      <span className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
+                      Current
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl select-none">{tier.emoji}</span>
+                      <div>
+                        <h4 className="text-sm font-bold text-white leading-tight">{tier.title}</h4>
+                        <span className="text-[10px] font-mono text-zinc-400">
+                          {tier.maxRating ? `${tier.minRating} – ${tier.maxRating}` : `${tier.minRating}+`} ELO
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-2">
+                      {tier.description}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-white/[0.04]">
+                    <RankBadge title={tier.title} size="xs" className="w-full justify-center" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
       </div>

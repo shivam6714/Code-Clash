@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { socket } from '../socket';
+import { getRankData } from '../utils/ranks';
 
 export const Navbar: React.FC = () => {
   const { isAuthenticated, user, logout, isLoading } = useAuth();
@@ -138,22 +139,28 @@ export const Navbar: React.FC = () => {
               <div className="w-5 h-5 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin"></div>
             ) : isAuthenticated ? (
               <div className="flex items-center gap-2.5">
-                <Link
-                  to="/profile"
-                  className="flex items-center gap-2.5 p-1 pr-3 rounded-xl bg-zinc-900/80 border border-white/[0.08] hover:border-cyan-500/40 hover:bg-zinc-800/80 transition-all"
-                >
-                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 text-zinc-950 font-bold flex items-center justify-center text-[11px]">
-                    {user?.username.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-xs font-semibold text-white">
-                      {user?.username}
-                    </span>
-                    <span className="text-[10px] text-cyan-400 font-mono font-medium">
-                      ⚡ {user?.rating || 300} ELO
-                    </span>
-                  </div>
-                </Link>
+                {(() => {
+                  const userRank = getRankData(user?.rating || 300);
+                  return (
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-2.5 p-1 pr-3 rounded-xl bg-zinc-900/80 border border-white/[0.08] hover:border-cyan-500/40 hover:bg-zinc-800/80 transition-all"
+                    >
+                      <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 text-zinc-950 font-bold flex items-center justify-center text-[11px]">
+                        {user?.username.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs font-semibold text-white flex items-center gap-1">
+                          <span>{user?.username}</span>
+                          <span className="text-[11px] select-none">{userRank.emoji}</span>
+                        </span>
+                        <span className={`text-[10px] font-mono font-medium ${userRank.color}`}>
+                          {user?.rating || 300} ELO • {userRank.title}
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })()}
 
                 <button
                   onClick={handleLogout}
@@ -232,9 +239,12 @@ export const Navbar: React.FC = () => {
               <Link
                 to="/profile"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-900"
+                className="block px-3 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-900 flex items-center justify-between"
               >
-                Profile ({user?.username} - ELO {user?.rating})
+                <span>Profile ({user?.username})</span>
+                <span className="text-xs font-mono text-cyan-400">
+                  {getRankData(user?.rating || 300).emoji} {user?.rating || 300} ELO
+                </span>
               </Link>
               <button
                 onClick={() => {

@@ -452,6 +452,9 @@ const endBattle = async (io: Server, battle: BattleRoom, reason: string, winnerU
         winnerUser.rating = eloCalc.winnerEloAfter;
         winnerUser.highestRating = Math.max(winnerUser.highestRating ?? 300, eloCalc.winnerEloAfter);
         winnerUser.wins = (winnerUser.wins || 0) + 1;
+        if (battle.problem?.slug && !winnerUser.solvedProblems?.includes(battle.problem.slug)) {
+          winnerUser.solvedProblems = [...(winnerUser.solvedProblems || []), battle.problem.slug];
+        }
         await winnerUser.save();
 
         loserUser.rating = eloCalc.loserEloAfter;

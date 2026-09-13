@@ -14,6 +14,7 @@ export interface ProblemListItem {
   difficulty: 'Easy' | 'Medium' | 'Hard';
   topics: string[];
   isPublished: boolean;
+  isSolved?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -26,6 +27,12 @@ export interface StarterCode {
   [key: string]: string | undefined;
 }
 
+export interface ProblemTestCase {
+  input: string;
+  expectedOutput: string;
+  isHidden?: boolean;
+}
+
 export interface Problem {
   _id: string;
   title: string;
@@ -35,6 +42,7 @@ export interface Problem {
   topics: string[];
   constraints: string[];
   examples: ProblemExample[];
+  testCases?: ProblemTestCase[];
   starterCode: StarterCode;
   timeLimit: number;
   memoryLimit: number;
@@ -43,9 +51,37 @@ export interface Problem {
   updatedAt: string;
 }
 
-export const fetchProblems = async (difficulty?: string, topic?: string, search?: string): Promise<ProblemListItem[]> => {
+export interface TestCaseResult {
+  input: string;
+  expectedOutput: string;
+  actualOutput: string;
+  passed: boolean;
+  status: string;
+  executionTime?: number;
+  errorMessage?: string;
+}
+
+export interface RunResult {
+  status: string;
+  passedTests: number;
+  totalTests: number;
+  testResults: TestCaseResult[];
+  errorMessage?: string;
+}
+
+export interface SubmissionResult {
+  status: string;
+  passedTests: number;
+  totalTests: number;
+  executionTime?: number;
+  memoryUsed?: number;
+  errorMessage?: string;
+}
+
+export const fetchProblems = async (difficulty?: string, topic?: string, search?: string, status?: string): Promise<ProblemListItem[]> => {
   const query = new URLSearchParams();
   if (difficulty) query.append('difficulty', difficulty);
+  if (status) query.append('status', status);
   const q = search || topic;
   if (q) query.append('search', q);
   
@@ -59,4 +95,20 @@ export const fetchProblems = async (difficulty?: string, topic?: string, search?
 export const fetchProblem = async (slug: string): Promise<Problem> => {
   const data = await apiFetch(`/api/problems/${slug}`);
   return data.problem;
+};
+
+export const runProblemCode = async (slug: string, sourceCode: string, language: string): Promise<RunResult> => {
+  const data = await apiFetch(`/api/problems/${slug}/run`, {
+    method: 'POST',
+    body: JSON.stringify({ sourceCode, language }),
+  });
+  return data.result;
+};
+
+export const submitProblemCode = async (slug: string, sourceCode: string, language: string): Promise<SubmissionResult> => {
+  const data = await apiFetch(`/api/problems/${slug}/submit`, {
+    method: 'POST',
+    body: JSON.stringify({ sourceCode, language }),
+  });
+  return data.result;
 };

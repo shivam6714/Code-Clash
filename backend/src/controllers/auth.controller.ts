@@ -66,6 +66,7 @@ export const register = async (req: Request, res: Response) => {
       wins: newUser.wins,
       losses: newUser.losses,
       draws: newUser.draws,
+      solvedProblems: newUser.solvedProblems || [],
       createdAt: newUser.createdAt,
     };
 
@@ -114,6 +115,7 @@ export const login = async (req: Request, res: Response) => {
       wins: user.wins,
       losses: user.losses,
       draws: user.draws,
+      solvedProblems: user.solvedProblems || [],
       createdAt: user.createdAt,
     };
 
@@ -146,6 +148,7 @@ export const me = (req: Request, res: Response) => {
     wins: user.wins,
     losses: user.losses,
     draws: user.draws,
+    solvedProblems: user.solvedProblems || [],
     createdAt: user.createdAt,
   };
 

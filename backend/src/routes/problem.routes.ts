@@ -1,9 +1,14 @@
 import { Router } from 'express';
-import { getProblems, getProblemBySlug } from '../controllers/problem.controller';
+import { getProblems, getProblemBySlug, runProblemCode, submitProblemCode } from '../controllers/problem.controller';
+import { authenticateOptional } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', getProblems);
-router.get('/:slug', getProblemBySlug);
+router.get('/', authenticateOptional, getProblems);
+router.get('/:slug', authenticateOptional, getProblemBySlug);
+router.post('/:slug/run', authenticateOptional, runProblemCode);
+router.post('/:slug/submit', authenticateOptional, submitProblemCode);
 
 export default router;
+
+

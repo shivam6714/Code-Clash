@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { socket } from '../socket';
 import { useAuth } from '../context/AuthContext';
+import { RankBadge } from '../utils/ranks';
 
 const SUPPORTED_LANGUAGES = [
   { id: 'cpp', name: 'C++' },
@@ -316,12 +317,15 @@ const BattleRoom: React.FC = () => {
                          <p className="text-xs text-zinc-400 leading-relaxed">{endReason}</p>
                        </div>
 
-                       <div className="p-4 bg-zinc-950/80 rounded-xl border border-white/[0.06] space-y-1">
+                       <div className="p-4 bg-zinc-950/80 rounded-xl border border-white/[0.06] space-y-2">
                          <div className="text-2xl font-black font-mono text-emerald-400">
                            +{eloResult.winnerEloChange} ELO
                          </div>
                          <div className="text-zinc-500 text-xs font-mono">
                            {eloResult.winnerEloBefore} → {eloResult.winnerEloAfter} ELO
+                         </div>
+                         <div className="pt-2 border-t border-white/[0.05] flex justify-center">
+                           <RankBadge rating={eloResult.winnerEloAfter} size="sm" showRating />
                          </div>
                        </div>
 
@@ -347,12 +351,15 @@ const BattleRoom: React.FC = () => {
                          <p className="text-xs text-zinc-400 leading-relaxed">{endReason}</p>
                        </div>
 
-                       <div className="p-4 bg-zinc-950/80 rounded-xl border border-white/[0.06] space-y-1">
+                       <div className="p-4 bg-zinc-950/80 rounded-xl border border-white/[0.06] space-y-2">
                          <div className="text-2xl font-black font-mono text-rose-400">
                            -{eloResult.loserEloChange} ELO
                          </div>
                          <div className="text-zinc-500 text-xs font-mono">
                            {eloResult.loserEloBefore} → {eloResult.loserEloAfter} ELO
+                         </div>
+                         <div className="pt-2 border-t border-white/[0.05] flex justify-center">
+                           <RankBadge rating={eloResult.loserEloAfter} size="sm" showRating />
                          </div>
                        </div>
 

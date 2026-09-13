@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { socket } from '../socket';
 import { useAuth } from '../context/AuthContext';
+import { RankBadge } from '../utils/ranks';
 
 const FindMatch: React.FC = () => {
   const { user } = useAuth();
@@ -97,9 +98,7 @@ const FindMatch: React.FC = () => {
             {user?.username?.charAt(0)?.toUpperCase() || 'U'}
           </div>
           <span className="text-xs font-semibold text-white">{user?.username}</span>
-          <span className="text-[11px] font-mono font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
-            ⚡ {user?.rating || 300} ELO
-          </span>
+          <RankBadge rating={user?.rating || 300} size="xs" showRating />
         </div>
 
         {/* Header Title */}

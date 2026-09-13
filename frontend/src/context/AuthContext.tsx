@@ -11,6 +11,7 @@ interface User {
   wins: number;
   losses: number;
   draws: number;
+  solvedProblems?: string[];
   createdAt: string;
 }
 
