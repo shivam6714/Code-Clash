@@ -63,7 +63,7 @@ const FindMatch: React.FC = () => {
   }, [navigate]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (isSearching) {
       interval = setInterval(() => {
         setSearchTime((prev) => prev + 1);

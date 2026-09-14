@@ -108,7 +108,7 @@ export const Landing: React.FC = () => {
   }, [navigate]);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setInterval>;
     if (isSearching) {
       timer = setInterval(() => {
         setSearchTime((prev) => prev + 1);

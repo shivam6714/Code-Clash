@@ -155,7 +155,7 @@ const BattleRoom: React.FC = () => {
 
   // Timer effect
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (status === 'ACTIVE' && endTime) {
       interval = setInterval(() => {
         const remaining = Math.max(0, endTime - Date.now());
