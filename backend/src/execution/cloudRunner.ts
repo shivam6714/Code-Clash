@@ -7,18 +7,15 @@ import {
   SubmissionStatus
 } from './types';
 
-// Free Public Judge0 Endpoints
-const JUDGE0_ENDPOINTS = [
-  'https://ce.judge0.com',
-  'https://judge0-ce.p.rapidapi.com',
-];
+// OnlineCompiler.io Synchronous Execution API Endpoint
+const ONLINECOMPILER_SYNC_ENDPOINT = 'https://api.onlinecompiler.io/api/run-code-sync/';
 
-// Judge0 Language IDs
-const JUDGE0_LANGUAGE_MAP: Record<SupportedLanguage, number> = {
-  cpp: 54,        // C++ (GCC 9.2.0)
-  python: 71,     // Python (3.8.1)
-  java: 62,       // Java (OpenJDK 13.0.1)
-  javascript: 63, // JavaScript (Node.js 12.14.0)
+// OnlineCompiler.io Compiler Identifiers
+const ONLINECOMPILER_LANGUAGE_MAP: Record<SupportedLanguage, string> = {
+  cpp: 'g++-15',
+  python: 'python-3.14',
+  java: 'openjdk-25',
+  javascript: 'typescript-deno',
 };
 
 const normalizeOutput = (str: string): string => {
@@ -32,90 +29,120 @@ const normalizeOutput = (str: string): string => {
     .trim();
 };
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-interface CloudExecResult {
+interface OnlineCompilerExecResult {
   stdout: string;
   stderr: string;
   exitCode: number;
   compileError?: string;
   isTimeout?: boolean;
-  statusId: number;
   durationMs: number;
 }
 
 /**
- * Execute a single test case using Judge0 Public CE API
+ * Check if the error indicates compilation/syntax failure
  */
-const executeJudge0 = async (
+const isCompilationError = (language: SupportedLanguage, stderr: string, exitCode: number, durationMs: number): boolean => {
+  if (!stderr) return false;
+  
+  const lowerErr = stderr.toLowerCase();
+  
+  if (
+    lowerErr.includes('syntaxerror') ||
+    lowerErr.includes('compileerror') ||
+    lowerErr.includes('compilation error') ||
+    lowerErr.includes('cannot find symbol') ||
+    lowerErr.includes('undefined reference') ||
+    lowerErr.includes('fatal error:')
+  ) {
+    return true;
+  }
+
+  if (language === 'cpp' || language === 'java') {
+    if (lowerErr.includes('error:') || lowerErr.includes('javac') || lowerErr.includes('g++:')) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+/**
+ * Execute a single test case using OnlineCompiler.io Sync API
+ */
+const executeOnlineCompiler = async (
   sourceCode: string,
   language: SupportedLanguage,
   stdin: string,
   timeLimit: number = 2000
-): Promise<CloudExecResult> => {
-  const langId = JUDGE0_LANGUAGE_MAP[language];
-  if (!langId) {
+): Promise<OnlineCompilerExecResult> => {
+  const apiKey = process.env.ONLINECOMPILER_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('ONLINECOMPILER_API_KEY environment variable is not set');
+  }
+
+  const compiler = ONLINECOMPILER_LANGUAGE_MAP[language];
+  if (!compiler) {
     throw new Error(`Unsupported language: ${language}`);
   }
 
   const payload = {
-    source_code: sourceCode,
-    language_id: langId,
-    stdin: stdin || '',
-    cpu_time_limit: Math.min(Math.max(timeLimit / 1000, 1), 5),
+    compiler,
+    code: sourceCode,
+    input: stdin || '',
   };
 
   const startTime = Date.now();
-  let lastError: Error | null = null;
 
-  for (const baseUrl of JUDGE0_ENDPOINTS) {
+  const response = await fetch(ONLINECOMPILER_SYNC_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': apiKey.trim(),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    let errorDetail = '';
     try {
-      const response = await fetch(`${baseUrl}/submissions/?base64_encoded=false&wait=true`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Judge0 returned HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      const durationMs = Date.now() - startTime;
-      const statusId = data.status?.id ?? 0;
-
-      // Status 6: Compilation Error
-      if (statusId === 6) {
-        return {
-          stdout: '',
-          stderr: data.compile_output || data.message || 'Compilation Error',
-          exitCode: 1,
-          compileError: data.compile_output || data.message || 'Compilation Error',
-          statusId,
-          durationMs,
-        };
-      }
-
-      // Status 5: Time Limit Exceeded
-      const isTimeout = statusId === 5;
-
-      return {
-        stdout: data.stdout || '',
-        stderr: data.stderr || data.message || '',
-        exitCode: statusId === 3 ? 0 : 1,
-        isTimeout,
-        statusId,
-        durationMs,
-      };
-    } catch (err: any) {
-      lastError = err;
-      await sleep(200);
+      const errJson = await response.json();
+      errorDetail = errJson.message || errJson.error || '';
+    } catch {
+      // ignore JSON parse failure on non-JSON response
     }
+    throw new Error(`OnlineCompiler API returned HTTP ${response.status}${errorDetail ? `: ${errorDetail}` : ''}`);
   }
 
-  throw lastError || new Error('All cloud execution endpoints failed');
+  const data = await response.json();
+  const rawElapsedSec = parseFloat(data.time || data.total || '0');
+  const durationMs = rawElapsedSec > 0 ? Math.round(rawElapsedSec * 1000) : (Date.now() - startTime);
+
+  const stdout = data.output || '';
+  const stderr = data.error || '';
+  const exitCode = typeof data.exit_code === 'number' ? data.exit_code : (data.status === 'success' ? 0 : 1);
+  const signal = data.signal;
+
+  // Timeout: exit code 124, timeout signals, explicit timeout message, or wall/reported time exceeding limit
+  const isTimeout =
+    exitCode === 124 ||
+    signal === 9 ||
+    signal === 15 ||
+    stderr.toLowerCase().includes('time limit exceeded') ||
+    stderr.toLowerCase().includes('timed out') ||
+    durationMs > timeLimit + 1000;
+
+  // Compilation Error
+  const compileError = !isTimeout && isCompilationError(language, stderr, exitCode, durationMs) ? stderr : undefined;
+
+  return {
+    stdout,
+    stderr,
+    exitCode,
+    compileError,
+    isTimeout,
+    durationMs,
+  };
 };
 
 /**
@@ -127,6 +154,16 @@ export const runCloudSubmission = async (
   testCases: TestCase[],
   timeLimit: number = 2000
 ): Promise<JudgeResult> => {
+  const apiKey = process.env.ONLINECOMPILER_API_KEY;
+  if (!apiKey) {
+    return {
+      status: SubmissionStatus.SYSTEM_ERROR,
+      passedTests: 0,
+      totalTests: testCases.length,
+      errorMessage: 'Execution configuration error: ONLINECOMPILER_API_KEY environment variable is not set.',
+    };
+  }
+
   let passedTests = 0;
   let maxDuration = 0;
 
@@ -134,7 +171,7 @@ export const runCloudSubmission = async (
     const tc = testCases[i];
 
     try {
-      const exec = await executeJudge0(sourceCode, language, tc.input, timeLimit);
+      const exec = await executeOnlineCompiler(sourceCode, language, tc.input, timeLimit);
 
       if (exec.compileError) {
         return {
@@ -154,8 +191,7 @@ export const runCloudSubmission = async (
         };
       }
 
-      // Runtime Error (IDs 7 to 12)
-      if (exec.statusId >= 7 && exec.statusId <= 12) {
+      if (exec.exitCode !== 0) {
         return {
           status: SubmissionStatus.RUNTIME_ERROR,
           passedTests,
@@ -182,7 +218,7 @@ export const runCloudSubmission = async (
         maxDuration = exec.durationMs;
       }
     } catch (error: any) {
-      console.error(`Submission error on test ${i + 1}:`, error);
+      console.error(`Submission error on test ${i + 1}:`, error.message || 'Execution error');
       return {
         status: SubmissionStatus.SYSTEM_ERROR,
         passedTests,
@@ -209,6 +245,17 @@ export const runCloudVisibleRun = async (
   visibleTestCases: TestCase[],
   timeLimit: number = 2000
 ): Promise<RunResult> => {
+  const apiKey = process.env.ONLINECOMPILER_API_KEY;
+  if (!apiKey) {
+    return {
+      status: SubmissionStatus.SYSTEM_ERROR,
+      passedTests: 0,
+      totalTests: visibleTestCases.length,
+      testResults: [],
+      errorMessage: 'Execution configuration error: ONLINECOMPILER_API_KEY environment variable is not set.',
+    };
+  }
+
   let passedTests = 0;
   const testResults: TestCaseResult[] = [];
   let overallStatus: SubmissionStatus = SubmissionStatus.ACCEPTED;
@@ -218,7 +265,7 @@ export const runCloudVisibleRun = async (
     const expected = normalizeOutput(tc.expectedOutput);
 
     try {
-      const exec = await executeJudge0(sourceCode, language, tc.input, timeLimit);
+      const exec = await executeOnlineCompiler(sourceCode, language, tc.input, timeLimit);
 
       if (exec.compileError) {
         return {
@@ -246,7 +293,7 @@ export const runCloudVisibleRun = async (
         break;
       }
 
-      if (exec.statusId >= 7 && exec.statusId <= 12) {
+      if (exec.exitCode !== 0) {
         testResults.push({
           input: tc.input,
           expectedOutput: expected,
@@ -276,7 +323,7 @@ export const runCloudVisibleRun = async (
         executionTime: exec.durationMs,
       });
     } catch (error: any) {
-      console.error(`Visible run error on test ${i + 1}:`, error);
+      console.error(`Visible run error on test ${i + 1}:`, error.message || 'Execution error');
       testResults.push({
         input: tc.input,
         expectedOutput: expected,
