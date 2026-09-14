@@ -50,6 +50,20 @@ const startServer = async () => {
     
     httpServer.listen(config.PORT, () => {
       console.log(`Backend is healthy and running on port ${config.PORT}`);
+      
+      // Keep Render instance awake by self-pinging every 5 minutes
+      const renderUrl = process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL;
+      if (renderUrl) {
+        const FIVE_MINUTES = 5 * 60 * 1000;
+        setInterval(async () => {
+          try {
+            const res = await fetch(`${renderUrl}/api/health`);
+            console.log(`[Keep-Alive] Ping sent to ${renderUrl}/api/health - Status: ${res.status}`);
+          } catch (err) {
+            console.error('[Keep-Alive] Ping failed:', err);
+          }
+        }, FIVE_MINUTES);
+      }
     });
   } catch (error) {
     console.error('Failed to connect to MongoDB:', error);
