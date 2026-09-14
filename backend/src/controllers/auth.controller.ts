@@ -6,10 +6,11 @@ import { config } from '../config/env';
 
 // Helper to set cookie
 const setTokenCookie = (res: Response, token: string) => {
+  const isProd = process.env.NODE_ENV === 'production';
   res.cookie('token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax', // Use 'lax' for local development cross-origin with credentials if on same domain, or 'strict'. If frontend is on 5173 and backend on 3000, we might need lax or none. Actually lax works if it's localhost.
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax', // 'none' is required for cross-site cookies between Vercel and Render
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 };
@@ -127,7 +128,12 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const logout = (req: Request, res: Response) => {
-  res.clearCookie('token');
+  const isProd = process.env.NODE_ENV === 'production';
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+  });
   res.status(200).json({ message: 'Logged out successfully' });
 };
 
