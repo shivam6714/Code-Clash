@@ -1,5 +1,4 @@
-import { Difficulty } from '../../models/Problem';
-import { IExample, ITestCase } from '../providers/ProblemProvider';
+import { Difficulty, IExample, ITestCase } from '../../models/Problem';
 
 export interface CodeClashProblemDefinition {
   title: string;
