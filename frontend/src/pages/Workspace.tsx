@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { fetchProblem, Problem, runProblemCode, submitProblemCode, RunResult, SubmissionResult } from '../api/problems';
+import { useAuth } from '../context/AuthContext';
 
 const SUPPORTED_LANGUAGES = [
   { id: 'cpp', name: 'C++' },
@@ -12,6 +13,7 @@ const SUPPORTED_LANGUAGES = [
 
 const Workspace: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
+  const { updateUser } = useAuth();
   const [problem, setProblem] = useState<Problem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +31,54 @@ const Workspace: React.FC = () => {
   const [consoleTab, setConsoleTab] = useState<'testcase' | 'run' | 'submission'>('testcase');
   const [activeTestCaseIndex, setActiveTestCaseIndex] = useState(0);
   const [isConsoleOpen, setIsConsoleOpen] = useState(true);
+  const [clipboardWarning, setClipboardWarning] = useState<string | null>(null);
+
+  const triggerClipboardWarning = (msg: string) => {
+    setClipboardWarning(msg);
+    setTimeout(() => {
+      setClipboardWarning((current) => (current === msg ? null : current));
+    }, 2500);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      if (isCtrlOrCmd && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        triggerClipboardWarning('Copying code or problem statement is disabled.');
+      } else if (isCtrlOrCmd && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault();
+        triggerClipboardWarning('Pasting code is disabled.');
+      } else if (isCtrlOrCmd && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        triggerClipboardWarning('Cutting text is disabled.');
+      } else if (isCtrlOrCmd && (e.key === 'Insert' || e.key === 'insert')) {
+        e.preventDefault();
+        triggerClipboardWarning('Clipboard actions are disabled.');
+      } else if (e.shiftKey && (e.key === 'Insert' || e.key === 'insert')) {
+        e.preventDefault();
+        triggerClipboardWarning('Pasting is disabled.');
+      }
+    };
+
+    const handleClipboard = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      triggerClipboardWarning('Clipboard copy/paste is disabled.');
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('copy', handleClipboard, true);
+    window.addEventListener('paste', handleClipboard, true);
+    window.addEventListener('cut', handleClipboard, true);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('copy', handleClipboard, true);
+      window.removeEventListener('paste', handleClipboard, true);
+      window.removeEventListener('cut', handleClipboard, true);
+    };
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -70,6 +120,51 @@ const Workspace: React.FC = () => {
     if (value !== undefined && problem) {
       setCodes(prev => ({ ...prev, [language]: value }));
       localStorage.setItem(`code_${problem.slug}_${language}`, value);
+    }
+  };
+
+  const handleEditorDidMount = (editor: any, monaco: any) => {
+    // Intercept and block Monaco clipboard keybindings
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, () => {
+      triggerClipboardWarning('Pasting code is disabled.');
+    });
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Insert, () => {
+      triggerClipboardWarning('Pasting code is disabled.');
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC, () => {
+      triggerClipboardWarning('Copying code is disabled.');
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Insert, () => {
+      triggerClipboardWarning('Copying code is disabled.');
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyX, () => {
+      triggerClipboardWarning('Cutting code is disabled.');
+    });
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Delete, () => {
+      triggerClipboardWarning('Cutting code is disabled.');
+    });
+
+    const domNode = editor.getDomNode();
+    if (domNode) {
+      domNode.addEventListener('paste', (e: Event) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        triggerClipboardWarning('Pasting code is disabled.');
+      }, true);
+      domNode.addEventListener('copy', (e: Event) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        triggerClipboardWarning('Copying code is disabled.');
+      }, true);
+      domNode.addEventListener('cut', (e: Event) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        triggerClipboardWarning('Cutting code is disabled.');
+      }, true);
+      domNode.addEventListener('contextmenu', (e: Event) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }, true);
     }
   };
 
@@ -118,12 +213,20 @@ const Workspace: React.FC = () => {
     try {
       const result = await submitProblemCode(slug, currentCode, language);
       setSubmissionResult(result);
+      if (result.status === 'ACCEPTED') {
+        updateUser(prev => {
+          if (!prev) return {};
+          const solvedSet = new Set<string>(prev.solvedProblems || []);
+          solvedSet.add(slug);
+          return { solvedProblems: Array.from(solvedSet) };
+        });
+      }
     } catch (err: any) {
       setSubmissionResult({
         status: 'SYSTEM_ERROR',
         passedTests: 0,
         totalTests: 0,
-        errorMessage: err.message || 'Failed to evaluate submission.',
+        errorMessage: err.message || 'Failed to submit solution.',
       });
     } finally {
       setIsSubmitting(false);
@@ -132,9 +235,9 @@ const Workspace: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-[calc(100vh-64px)] bg-[#07080c] flex flex-col items-center justify-center text-zinc-400 text-xs space-y-3">
-        <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-        <span>Loading problem workspace...</span>
+      <div className="min-h-[calc(100vh-64px)] bg-[#07080c] flex flex-col items-center justify-center text-zinc-400 gap-3">
+        <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs font-mono">Initializing problem workspace...</p>
       </div>
     );
   }
@@ -159,10 +262,36 @@ const Workspace: React.FC = () => {
   const sampleTestCases = problem.testCases?.filter(tc => !tc.isHidden) || [];
 
   return (
-    <div className="flex flex-col md:flex-row h-[calc(100vh-64px)] bg-[#07080c] overflow-hidden">
+    <div className="flex flex-col md:flex-row h-[calc(100vh-64px)] bg-[#07080c] overflow-hidden relative">
+      {/* Clipboard Warning Toast */}
+      {clipboardWarning && (
+        <div className="fixed top-20 right-6 z-50 flex items-center gap-2.5 bg-rose-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-2xl shadow-rose-500/30 border border-rose-400 animate-bounce pointer-events-none">
+          <span className="text-base">🔒</span>
+          <span>{clipboardWarning}</span>
+        </div>
+      )}
       
-      {/* Left Pane: Problem Description */}
-      <div className="w-full md:w-1/2 lg:w-2/5 p-6 border-r border-white/[0.06] overflow-y-auto custom-scrollbar bg-zinc-950/40 space-y-6">
+      {/* Left Pane: Problem Description (Protected from copying/selection) */}
+      <div 
+        className="w-full md:w-1/2 lg:w-2/5 p-6 border-r border-white/[0.06] overflow-y-auto custom-scrollbar bg-zinc-950/40 space-y-6 select-none no-copy-select"
+        onCopy={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          triggerClipboardWarning('Copying problem statement is disabled.');
+        }}
+        onCut={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onDragStart={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
         
         {/* Header Title & Difficulty */}
         <div className="space-y-2">
@@ -306,13 +435,34 @@ const Workspace: React.FC = () => {
         </div>
 
         {/* Monaco Editor Container */}
-        <div className="flex-grow relative overflow-hidden">
+        <div 
+          className="flex-grow relative overflow-hidden"
+          onPaste={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            triggerClipboardWarning('Pasting code is disabled.');
+          }}
+          onCopy={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            triggerClipboardWarning('Copying code is disabled.');
+          }}
+          onCut={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
           <Editor
             height="100%"
             language={language}
             theme="vs-dark"
             value={codes[language] || ''}
             onChange={handleEditorChange}
+            onMount={handleEditorDidMount}
             options={{
               minimap: { enabled: false },
               fontSize: 13,
@@ -321,6 +471,8 @@ const Workspace: React.FC = () => {
               padding: { top: 16 },
               scrollBeyondLastLine: false,
               automaticLayout: true,
+              contextmenu: false,
+              copyWithSyntaxHighlighting: false,
             }}
           />
         </div>

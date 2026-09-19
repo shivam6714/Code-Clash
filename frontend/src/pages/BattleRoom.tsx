@@ -15,7 +15,7 @@ const SUPPORTED_LANGUAGES = [
 const BattleRoom: React.FC = () => {
   const { battleId } = useParams<{ battleId: string }>();
   const navigate = useNavigate();
-  const { user, updateUser } = useAuth();
+  const { updateUser } = useAuth();
   
   const [status, setStatus] = useState<'WAITING' | 'COUNTDOWN' | 'ACTIVE' | 'FINISHED' | 'CANCELLED'>('WAITING');
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -35,6 +35,54 @@ const BattleRoom: React.FC = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [runResult, setRunResult] = useState<any | null>(null);
   const [showRunPanel, setShowRunPanel] = useState(false);
+  const [clipboardWarning, setClipboardWarning] = useState<string | null>(null);
+
+  const triggerClipboardWarning = (msg: string) => {
+    setClipboardWarning(msg);
+    setTimeout(() => {
+      setClipboardWarning((current) => (current === msg ? null : current));
+    }, 2500);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      if (isCtrlOrCmd && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        triggerClipboardWarning('Copying code or problem statement is disabled.');
+      } else if (isCtrlOrCmd && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault();
+        triggerClipboardWarning('Pasting code is disabled during battle.');
+      } else if (isCtrlOrCmd && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        triggerClipboardWarning('Cutting text is disabled.');
+      } else if (isCtrlOrCmd && (e.key === 'Insert' || e.key === 'insert')) {
+        e.preventDefault();
+        triggerClipboardWarning('Clipboard actions are disabled.');
+      } else if (e.shiftKey && (e.key === 'Insert' || e.key === 'insert')) {
+        e.preventDefault();
+        triggerClipboardWarning('Pasting is disabled.');
+      }
+    };
+
+    const handleClipboard = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      triggerClipboardWarning('Clipboard copy/paste is disabled.');
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('copy', handleClipboard, true);
+    window.addEventListener('paste', handleClipboard, true);
+    window.addEventListener('cut', handleClipboard, true);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('copy', handleClipboard, true);
+      window.removeEventListener('paste', handleClipboard, true);
+      window.removeEventListener('cut', handleClipboard, true);
+    };
+  }, []);
 
   useEffect(() => {
     const handleBattleStarted = (data: any) => {
@@ -181,6 +229,51 @@ const BattleRoom: React.FC = () => {
     }
   };
 
+  const handleEditorDidMount = (editor: any, monaco: any) => {
+    // Intercept and block Monaco clipboard keybindings
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, () => {
+      triggerClipboardWarning('Pasting code is disabled.');
+    });
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Insert, () => {
+      triggerClipboardWarning('Pasting code is disabled.');
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC, () => {
+      triggerClipboardWarning('Copying code is disabled.');
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Insert, () => {
+      triggerClipboardWarning('Copying code is disabled.');
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyX, () => {
+      triggerClipboardWarning('Cutting code is disabled.');
+    });
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Delete, () => {
+      triggerClipboardWarning('Cutting code is disabled.');
+    });
+
+    const domNode = editor.getDomNode();
+    if (domNode) {
+      domNode.addEventListener('paste', (e: Event) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        triggerClipboardWarning('Pasting code is disabled.');
+      }, true);
+      domNode.addEventListener('copy', (e: Event) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        triggerClipboardWarning('Copying code is disabled.');
+      }, true);
+      domNode.addEventListener('cut', (e: Event) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        triggerClipboardWarning('Cutting code is disabled.');
+      }, true);
+      domNode.addEventListener('contextmenu', (e: Event) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }, true);
+    }
+  };
+
   const handleRun = () => {
     if (isRunning || isJudging || status !== 'ACTIVE') return;
     setIsRunning(true);
@@ -220,7 +313,7 @@ const BattleRoom: React.FC = () => {
 
   if (status === 'WAITING' || status === 'COUNTDOWN') {
     return (
-      <div className="min-h-[calc(100vh-64px)] bg-[#07080c] flex flex-col items-center justify-center text-white relative ambient-grid">
+      <div className="min-h-[calc(100vh-64px)] bg-[#07080c] flex flex-col items-center justify-center text-white relative ambient-grid select-none no-copy-select">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -z-0" />
         
         <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/60 backdrop-blur-xl p-10 text-center shadow-2xl space-y-6 max-w-sm w-full mx-4 relative z-10">
@@ -248,161 +341,220 @@ const BattleRoom: React.FC = () => {
   if ((status === 'FINISHED' || status === 'CANCELLED') && !problem) {
      return (
        <div className="min-h-[calc(100vh-64px)] bg-[#07080c] flex flex-col items-center justify-center text-white p-6 ambient-grid">
-         <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/60 backdrop-blur-xl p-8 text-center max-w-md w-full shadow-2xl space-y-4">
-           <h1 className="text-xl font-bold text-white">Battle Ended</h1>
-           <p className="text-xs text-zinc-400">{endReason || 'This duel has concluded.'}</p>
-           <button
-             onClick={() => navigate('/find-match')}
-             className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-zinc-950 font-bold text-xs uppercase tracking-wider transition-all"
-           >
-             Return to Matchmaking
-           </button>
-         </div>
+          <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/80 backdrop-blur-xl p-8 max-w-md w-full text-center space-y-4 shadow-2xl">
+             <div className="text-3xl">⚔️</div>
+             <h1 className="text-2xl font-bold">{status === 'FINISHED' ? 'Battle Completed' : 'Battle Cancelled'}</h1>
+             <p className="text-zinc-400 text-sm">{endReason || 'This battle has concluded.'}</p>
+             <button
+               onClick={() => navigate('/find-match')}
+               className="mt-4 px-6 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs border border-white/[0.08] transition-all"
+             >
+               Return to Matchmaking
+             </button>
+          </div>
        </div>
      );
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-[#07080c] overflow-hidden">
-      {/* Battle Header */}
-      <div className="h-14 bg-zinc-950/90 border-b border-white/[0.06] flex items-center justify-between px-4 sm:px-6 shrink-0 backdrop-blur-md">
-        <div className="flex items-center space-x-4 sm:space-x-8">
-          <div className="text-sm font-semibold flex items-center gap-2">
-            <span className="text-white font-bold">{players.me || 'You'}</span>
-            <span className="text-zinc-600 text-xs font-mono font-bold">VS</span>
-            <span className="text-rose-400 font-bold">{players.opponent || 'Opponent'}</span>
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-dark-900 overflow-hidden relative">
+      {/* Clipboard Warning Toast */}
+      {clipboardWarning && (
+        <div className="fixed top-20 right-6 z-50 flex items-center gap-2.5 bg-rose-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-2xl shadow-rose-500/30 border border-rose-400 animate-bounce pointer-events-none">
+          <span className="text-base">🔒</span>
+          <span>{clipboardWarning}</span>
+        </div>
+      )}
+
+      {/* Top Status Bar */}
+      <div className="h-16 bg-dark-800 border-b border-dark-700 flex items-center justify-between px-6 z-10 shrink-0">
+        <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+            <span className="font-bold text-white text-sm">YOU ({players.me})</span>
           </div>
-          <div className="hidden sm:flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-900/80 px-2.5 py-1 rounded-full border border-white/[0.05]">
-            <span className={`w-1.5 h-1.5 rounded-full ${opponentStatus === 'Connected' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
-            <span className="text-[11px] font-mono">{opponentStatus}</span>
+          <span className="text-gray-500 font-bold">VS</span>
+          <div className="flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full ${opponentStatus === 'Connected' ? 'bg-cyan-500' : 'bg-red-500'}`}></div>
+            <span className="font-bold text-gray-300 text-sm">{players.opponent}</span>
+            {opponentStatus !== 'Connected' && (
+              <span className="text-xs text-red-400">({opponentStatus})</span>
+            )}
           </div>
         </div>
-        
-        <div className="flex items-center space-x-4 sm:space-x-6">
-          <div className={`flex items-center gap-1.5 text-sm sm:text-base font-mono font-bold ${(timeLeft || 0) < 60000 ? 'text-rose-400 animate-pulse' : 'text-white'}`}>
-            <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>{formatTime(timeLeft)}</span>
+
+        {/* Action message ticker */}
+        {actionMessage && (
+          <div className="hidden md:flex items-center px-3 py-1 rounded-full bg-zinc-800/80 border border-zinc-700 text-xs font-mono text-cyan-400 animate-pulse">
+            {actionMessage}
           </div>
+        )}
+
+        <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2 bg-dark-900 px-4 py-1.5 rounded-lg border border-dark-600">
+            <span className="text-gray-400 text-xs font-mono uppercase">Time:</span>
+            <span className={`font-mono font-bold text-base ${(timeLeft || 0) < 60000 ? 'text-red-400 animate-pulse' : 'text-cyan-400'}`}>
+              {formatTime(timeLeft)}
+            </span>
+          </div>
+
           <button 
             onClick={handleLeave}
-            className="text-zinc-400 hover:text-rose-400 text-xs font-medium transition-colors"
+            className="text-gray-400 hover:text-red-400 text-xs font-semibold px-3 py-1.5 rounded border border-transparent hover:border-red-900/50 hover:bg-red-950/20 transition-all"
           >
-            Forfeit
+            Leave Battle
           </button>
         </div>
       </div>
 
+      {/* Main Workspace Area */}
       <div className="flex flex-col md:flex-row flex-grow overflow-hidden relative">
+        
+        {/* Battle End Overlay */}
         {(status === 'FINISHED' || status === 'CANCELLED') && (
-          <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-md p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-40 flex items-center justify-center p-4">
              {eloResult ? (
-               (() => {
-                 const currentUserId = user?.id || (user as any)?._id;
-                 const winnerId = eloResult.winnerId || eloResult.winnerUserId;
-                 const loserId = eloResult.loserId || eloResult.loserUserId;
+                (() => {
+                  const isWinner = eloResult.winnerUsername === players.me;
+                  const isLoser = eloResult.loserUsername === players.me;
+                  const isDraw = eloResult.isDraw;
 
-                 const isWinner = !!(currentUserId && currentUserId === winnerId);
-                 const isLoser = !!(currentUserId && currentUserId === loserId);
+                  if (isDraw) {
+                    return (
+                      <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl space-y-6">
+                        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center text-3xl mx-auto">
+                          🤝
+                        </div>
+                        <div className="space-y-1">
+                          <h2 className="text-2xl font-bold text-amber-400 tracking-tight">Draw</h2>
+                          <p className="text-xs text-zinc-400 leading-relaxed">{endReason}</p>
+                        </div>
+                        <button
+                          onClick={() => navigate('/find-match')}
+                          className="w-full py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs uppercase tracking-wider transition-all border border-white/[0.08]"
+                        >
+                          Return to Matchmaking
+                        </button>
+                      </div>
+                    );
+                  }
 
-                 if (isWinner) {
-                   return (
-                     <div className="rounded-2xl border border-emerald-500/40 bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl shadow-emerald-500/20 space-y-6">
-                       <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-3xl mx-auto">
-                         🏆
-                       </div>
-                       <div className="space-y-1">
-                         <h2 className="text-2xl font-bold text-emerald-400 tracking-tight">Victory!</h2>
-                         <p className="text-xs text-zinc-400 leading-relaxed">{endReason}</p>
-                       </div>
+                  if (isWinner) {
+                    return (
+                      <div className="rounded-2xl border border-emerald-500/40 bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl shadow-emerald-500/20 space-y-6">
+                        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-3xl mx-auto">
+                          🏆
+                        </div>
+                        <div className="space-y-1">
+                          <h2 className="text-2xl font-bold text-emerald-400 tracking-tight">Victory!</h2>
+                          <p className="text-xs text-zinc-400 leading-relaxed">{endReason}</p>
+                        </div>
 
-                       <div className="p-4 bg-zinc-950/80 rounded-xl border border-white/[0.06] space-y-2">
-                         <div className="text-2xl font-black font-mono text-emerald-400">
-                           +{eloResult.winnerEloChange} ELO
-                         </div>
-                         <div className="text-zinc-500 text-xs font-mono">
-                           {eloResult.winnerEloBefore} → {eloResult.winnerEloAfter} ELO
-                         </div>
-                         <div className="pt-2 border-t border-white/[0.05] flex justify-center">
-                           <RankBadge rating={eloResult.winnerEloAfter} size="sm" showRating />
-                         </div>
-                       </div>
+                        <div className="p-4 bg-zinc-950/80 rounded-xl border border-white/[0.06] space-y-2">
+                          <div className="text-2xl font-black font-mono text-emerald-400">
+                            +{eloResult.winnerEloChange} ELO
+                          </div>
+                          <div className="text-zinc-500 text-xs font-mono">
+                            {eloResult.winnerEloBefore} → {eloResult.winnerEloAfter} ELO
+                          </div>
+                          <div className="pt-2 border-t border-white/[0.05] flex justify-center">
+                            <RankBadge rating={eloResult.winnerEloAfter} size="sm" showRating />
+                          </div>
+                        </div>
 
+                        <button
+                          onClick={() => navigate('/find-match')}
+                          className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-zinc-950 font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20"
+                        >
+                          Find Next Match
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  if (isLoser) {
+                    const title = eloResult.isAbandonment ? 'Battle Abandoned' : 'Defeat';
+                    return (
+                      <div className="rounded-2xl border border-rose-500/40 bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl shadow-rose-500/20 space-y-6">
+                        <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center text-3xl mx-auto">
+                          💀
+                        </div>
+                        <div className="space-y-1">
+                          <h2 className="text-2xl font-bold text-rose-400 tracking-tight">{title}</h2>
+                          <p className="text-xs text-zinc-400 leading-relaxed">{endReason}</p>
+                        </div>
+
+                        <div className="p-4 bg-zinc-950/80 rounded-xl border border-white/[0.06] space-y-2">
+                          <div className="text-2xl font-black font-mono text-rose-400">
+                            -{eloResult.loserEloChange} ELO
+                          </div>
+                          <div className="text-zinc-500 text-xs font-mono">
+                            {eloResult.loserEloBefore} → {eloResult.loserEloAfter} ELO
+                          </div>
+                          <div className="pt-2 border-t border-white/[0.05] flex justify-center">
+                            <RankBadge rating={eloResult.loserEloAfter} size="sm" showRating />
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => navigate('/find-match')}
+                          className="w-full py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs uppercase tracking-wider transition-all border border-white/[0.08]"
+                        >
+                          Return to Matchmaking
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl space-y-5">
+                       <h2 className="text-xl font-bold text-white">{status === 'FINISHED' ? 'Battle Ended' : 'Battle Cancelled'}</h2>
+                       <p className="text-xs text-zinc-400">{endReason}</p>
                        <button
                          onClick={() => navigate('/find-match')}
-                         className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-zinc-950 font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20"
-                       >
-                         Find Next Match →
-                       </button>
-                     </div>
-                   );
-                 }
-
-                 if (isLoser) {
-                   const title = eloResult.isAbandonment ? 'Battle Abandoned' : 'Defeat';
-                   return (
-                     <div className="rounded-2xl border border-rose-500/40 bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl shadow-rose-500/20 space-y-6">
-                       <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center text-3xl mx-auto">
-                         💀
-                       </div>
-                       <div className="space-y-1">
-                         <h2 className="text-2xl font-bold text-rose-400 tracking-tight">{title}</h2>
-                         <p className="text-xs text-zinc-400 leading-relaxed">{endReason}</p>
-                       </div>
-
-                       <div className="p-4 bg-zinc-950/80 rounded-xl border border-white/[0.06] space-y-2">
-                         <div className="text-2xl font-black font-mono text-rose-400">
-                           -{eloResult.loserEloChange} ELO
-                         </div>
-                         <div className="text-zinc-500 text-xs font-mono">
-                           {eloResult.loserEloBefore} → {eloResult.loserEloAfter} ELO
-                         </div>
-                         <div className="pt-2 border-t border-white/[0.05] flex justify-center">
-                           <RankBadge rating={eloResult.loserEloAfter} size="sm" showRating />
-                         </div>
-                       </div>
-
-                       <button
-                         onClick={() => navigate('/find-match')}
-                         className="w-full py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs uppercase tracking-wider transition-all border border-white/[0.08]"
+                         className="w-full py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs border border-white/[0.08]"
                        >
                          Return to Matchmaking
                        </button>
-                     </div>
-                   );
-                 }
-
-                 return (
-                   <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl space-y-5">
-                      <h2 className="text-xl font-bold text-white">{status === 'FINISHED' ? 'Battle Ended' : 'Battle Cancelled'}</h2>
-                      <p className="text-xs text-zinc-400">{endReason}</p>
-                      <button
-                        onClick={() => navigate('/find-match')}
-                        className="w-full py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs border border-white/[0.08]"
-                      >
-                        Return to Matchmaking
-                      </button>
-                   </div>
-                 );
-               })()
-             ) : (
-               <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl space-y-5">
-                  <h2 className="text-xl font-bold text-white">{status === 'FINISHED' ? 'Battle Ended' : 'Battle Cancelled'}</h2>
-                  <p className="text-xs text-zinc-400">{endReason}</p>
-                  <button
-                    onClick={() => navigate('/find-match')}
-                    className="w-full py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs border border-white/[0.08]"
-                  >
-                    Return to Matchmaking
-                  </button>
-               </div>
-             )}
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/90 backdrop-blur-xl p-8 text-center max-w-sm w-full shadow-2xl space-y-5">
+                   <h2 className="text-xl font-bold text-white">{status === 'FINISHED' ? 'Battle Ended' : 'Battle Cancelled'}</h2>
+                   <p className="text-xs text-zinc-400">{endReason}</p>
+                   <button
+                     onClick={() => navigate('/find-match')}
+                     className="w-full py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs border border-white/[0.08]"
+                   >
+                     Return to Matchmaking
+                   </button>
+                </div>
+              )}
           </div>
         )}
 
-        {/* Left Pane: Description */}
-        <div className="w-full md:w-1/2 lg:w-2/5 p-6 border-r border-dark-700 overflow-y-auto custom-scrollbar">
+        {/* Left Pane: Description (Protected from copying/selection) */}
+        <div 
+          className="w-full md:w-1/2 lg:w-2/5 p-6 border-r border-dark-700 overflow-y-auto custom-scrollbar select-none no-copy-select"
+          onCopy={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            triggerClipboardWarning('Copying problem statement is disabled.');
+          }}
+          onCut={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDragStart={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
           {problem && (
             <>
               <h1 className="text-2xl font-bold text-white mb-2">{problem.title}</h1>
@@ -468,19 +620,42 @@ const BattleRoom: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-grow relative">
+          <div 
+            className="flex-grow relative"
+            onPaste={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              triggerClipboardWarning('Pasting code is disabled.');
+            }}
+            onCopy={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              triggerClipboardWarning('Copying code is disabled.');
+            }}
+            onCut={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
             <Editor
               height="100%"
               language={language}
               theme="vs-dark"
               value={codes[language] || ''}
               onChange={handleEditorChange}
+              onMount={handleEditorDidMount}
               options={{
                 minimap: { enabled: false },
                 fontSize: 14,
                 wordWrap: 'on',
                 padding: { top: 16 },
                 readOnly: status !== 'ACTIVE',
+                contextmenu: false,
+                copyWithSyntaxHighlighting: false,
               }}
             />
             
