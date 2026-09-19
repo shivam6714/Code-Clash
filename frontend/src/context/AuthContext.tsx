@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { apiFetch } from '../api/auth';
+import { apiFetch, setStoredToken, getStoredToken } from '../api/auth';
 
 interface User {
   id: string;
@@ -31,11 +31,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchUser = async () => {
+  const fetchUser = async (retryCount = 0) => {
     try {
       const data = await apiFetch('/api/auth/me');
+      if (data?.token) {
+        setStoredToken(data.token);
+      }
       setUser(data.user);
-    } catch (error) {
+    } catch (error: any) {
+      // If server cold-booting / network error and we have a token, retry once after 2 seconds
+      const isNetworkError = error?.message?.toLowerCase().includes('failed to fetch') ||
+                             error?.message?.toLowerCase().includes('network') ||
+                             error?.message?.toLowerCase().includes('timeout');
+      if (isNetworkError && retryCount < 2 && getStoredToken()) {
+        setTimeout(() => fetchUser(retryCount + 1), 2000);
+        return;
+      }
+
+      // If explicitly unauthorized or user not found, clear auth state
+      if (error?.message?.includes('Authentication') || 
+          error?.message?.includes('token') || 
+          error?.message?.includes('not authenticated') ||
+          error?.message?.includes('User not found')) {
+        setStoredToken(null);
+      }
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -44,6 +63,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     fetchUser();
+
+    // Periodically refresh the token every 12 hours while active so it never expires
+    const REFRESH_INTERVAL = 12 * 60 * 60 * 1000;
+    const interval = setInterval(() => {
+      if (getStoredToken()) {
+        apiFetch('/api/auth/me').then(data => {
+          if (data?.user) setUser(data.user);
+        }).catch(() => {});
+      }
+    }, REFRESH_INTERVAL);
+
+    // Also refresh on window focus if tab was left backgrounded for long
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && getStoredToken()) {
+        apiFetch('/api/auth/me').then(data => {
+          if (data?.user) setUser(data.user);
+        }).catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   const login = async (emailOrCredentials: any, maybePassword?: string) => {
@@ -54,6 +98,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       method: 'POST',
       body: JSON.stringify(body),
     });
+    if (data.token) {
+      setStoredToken(data.token);
+    }
     setUser(data.user);
   };
 
@@ -62,12 +109,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       method: 'POST',
       body: JSON.stringify(credentials),
     });
+    if (data.token) {
+      setStoredToken(data.token);
+    }
     setUser(data.user);
   };
 
   const logout = async () => {
-    await apiFetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Ignore network errors on logout
+    } finally {
+      setStoredToken(null);
+      setUser(null);
+    }
   };
 
   const updateUser = (updater: Partial<User> | ((prev: User | null) => Partial<User>)) => {

@@ -12,9 +12,23 @@ declare global {
   }
 }
 
+const extractToken = (req: Request): string | null => {
+  if (req.headers.authorization) {
+    const parts = req.headers.authorization.split(' ');
+    if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
+      return parts[1];
+    }
+    return req.headers.authorization;
+  }
+  if (req.cookies && req.cookies.token) {
+    return req.cookies.token;
+  }
+  return null;
+};
+
 export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const token = req.cookies.token;
+    const token = extractToken(req);
 
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
@@ -36,7 +50,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
 export const authenticateOptional = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const token = req.cookies.token;
+    const token = extractToken(req);
     if (token) {
       const decoded = jwt.verify(token, config.JWT_SECRET) as { id: string };
       const user = await User.findById(decoded.id).select('-passwordHash');

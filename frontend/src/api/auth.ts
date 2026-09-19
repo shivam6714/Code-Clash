@@ -1,13 +1,38 @@
 // API URL configuration
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+// Token storage helpers for seamless cross-domain session persistence
+export const getStoredToken = (): string | null => {
+  try {
+    return localStorage.getItem('token') || localStorage.getItem('auth_token');
+  } catch {
+    return null;
+  }
+};
+
+export const setStoredToken = (token: string | null) => {
+  try {
+    if (token) {
+      localStorage.setItem('token', token);
+      localStorage.setItem('auth_token', token);
+    } else {
+      localStorage.removeItem('token');
+      localStorage.removeItem('auth_token');
+    }
+  } catch {
+    // Ignore localStorage quota / private browsing errors
+  }
+};
+
 // Helper for making API calls with credentials
 export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
   const url = `${API_URL}${endpoint}`;
   
-  const headers = {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers as Record<string, string>),
   };
 
   const response = await fetch(url, {
@@ -21,7 +46,13 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
     throw new Error(errorData.message || 'An error occurred');
   }
 
-  return response.json();
+  const data = await response.json();
+  // Automatically persist renewed/refreshed tokens from backend responses
+  if (data && data.token) {
+    setStoredToken(data.token);
+  }
+
+  return data;
 };
 
 export interface LeaderboardUser {

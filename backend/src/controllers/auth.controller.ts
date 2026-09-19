@@ -11,7 +11,7 @@ const setTokenCookie = (res: Response, token: string) => {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? 'none' : 'lax', // 'none' is required for cross-site cookies between Vercel and Render
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
   });
 };
 
@@ -50,9 +50,9 @@ export const register = async (req: Request, res: Response) => {
       passwordHash,
     });
 
-    // Generate token
+    // Generate token (30 days validity)
     const token = jwt.sign({ id: newUser._id }, config.JWT_SECRET, {
-      expiresIn: '7d',
+      expiresIn: '30d',
     });
 
     setTokenCookie(res, token);
@@ -71,7 +71,7 @@ export const register = async (req: Request, res: Response) => {
       createdAt: newUser.createdAt,
     };
 
-    res.status(201).json({ user: userProfile });
+    res.status(201).json({ user: userProfile, token });
   } catch (error) {
     console.error('Register error:', error);
     if ((error as any).code === 11000) {
@@ -100,8 +100,9 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    // Generate token (30 days validity)
     const token = jwt.sign({ id: user._id }, config.JWT_SECRET, {
-      expiresIn: '7d',
+      expiresIn: '30d',
     });
 
     setTokenCookie(res, token);
@@ -120,7 +121,7 @@ export const login = async (req: Request, res: Response) => {
       createdAt: user.createdAt,
     };
 
-    res.status(200).json({ user: userProfile });
+    res.status(200).json({ user: userProfile, token });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -144,6 +145,13 @@ export const me = (req: Request, res: Response) => {
   }
   
   const user = req.user;
+
+  // Issue rolling refreshed token on every /me check so active users never expire
+  const refreshedToken = jwt.sign({ id: user._id }, config.JWT_SECRET, {
+    expiresIn: '30d',
+  });
+  setTokenCookie(res, refreshedToken);
+
   const userProfile = {
     id: user._id,
     username: user.username,
@@ -158,7 +166,7 @@ export const me = (req: Request, res: Response) => {
     createdAt: user.createdAt,
   };
 
-  res.status(200).json({ user: userProfile });
+  res.status(200).json({ user: userProfile, token: refreshedToken });
 };
 
 export const getLeaderboard = async (req: Request, res: Response) => {

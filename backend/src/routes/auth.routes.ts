@@ -8,6 +8,7 @@ router.post('/register', register);
 router.post('/login', login);
 router.post('/logout', logout);
 router.get('/me', authenticate, me);
+router.post('/refresh', authenticate, me);
 router.get('/leaderboard', getLeaderboard);
 
 export default router;

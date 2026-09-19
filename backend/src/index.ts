@@ -15,7 +15,10 @@ const httpServer = createServer(app);
 
 // Middleware
 app.use(cors({
-  origin: config.FRONTEND_URL,
+  origin: (origin, callback) => {
+    // Dynamic origin matching allows credentials across deployed domains (e.g. Vercel & Render)
+    callback(null, true);
+  },
   credentials: true,
 }));
 app.use(express.json());
